@@ -1,0 +1,13 @@
+{
+    "Servers": {
+        "1": {
+            "Name": "pgsql",
+            "Group": "Servers",
+            "Port": 5432,
+            "Username": "bigparticle",
+            "Host": "pgsql-bigparticle",
+            "SSLMode": "disable",
+            "MaintenanceDB": "bigparticle"
+        }
+    }
+}

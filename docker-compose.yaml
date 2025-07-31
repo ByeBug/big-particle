@@ -1,0 +1,28 @@
+services:
+  pgsql:
+    image: postgres:17.5-alpine3.21
+    container_name: pgsql-bigparticle
+    restart: always
+    shm_size: 128mb
+    environment:
+      - POSTGRES_USER=bigparticle
+      - POSTGRES_PASSWORD=bigparticle
+      - POSTGRES_DB=bigparticle
+      - TZ=Asia/Shanghai
+    ports:
+      - 15432:5432
+    volumes:
+      - ./data/pgsql:/var/lib/postgresql/data
+
+  pgadmin4:
+    image: dpage/pgadmin4:9.4
+    container_name: pgadmin4-bigparticle
+    restart: always
+    volumes:
+      - ./pgadmin4/servers.json:/pgadmin4/servers.json
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=test@123.com
+      - PGADMIN_DEFAULT_PASSWORD=123456
+      - TZ=Asia/Shanghai
+    ports:
+      - "8181:80"
