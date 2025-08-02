@@ -2,6 +2,7 @@ import time
 import queue
 import threading
 import os
+import shutil
 from datetime import datetime
 from typing import Optional
 
@@ -21,6 +22,7 @@ class VideoStreamProcessor:
     ENABLE_SAVE = True  # 启用帧保存功能
 
     SAVE_FRAMES_DIR = "/data/big-particle-data/storage/saved_frames"
+    SAFE_FREE_SPACE_GB = 100  # 安全剩余空间阈值（GB）
     
     def __init__(self, video_stream):
         self.video_stream = video_stream
@@ -270,6 +272,10 @@ class VideoStreamProcessor:
 # 全局处理器管理
 active_processors = {}
 
+# 全局清理线程
+cleanup_thread = None
+cleanup_running = False
+
 
 def get_processor(video_stream_id: int) -> Optional[VideoStreamProcessor]:
     """获取指定视频流的处理器"""
@@ -291,9 +297,115 @@ def remove_processor(video_stream_id: int):
         processor.stop()
 
 
+def cleanup_loop():
+    """清理线程：每分钟检查磁盘空间，必要时删除最旧的图片目录"""
+    global cleanup_running
+    
+    while cleanup_running:
+        try:
+            # 检查磁盘剩余空间
+            free_space_gb = get_free_space_gb(VideoStreamProcessor.SAVE_FRAMES_DIR)
+            
+            if free_space_gb < VideoStreamProcessor.SAFE_FREE_SPACE_GB:
+                print(f"磁盘空间不足 {free_space_gb:.1f}GB < {VideoStreamProcessor.SAFE_FREE_SPACE_GB}GB，开始清理...")
+                
+                # 找到最旧的图片目录并删除
+                oldest_dir = find_oldest_frame_directory()
+                if oldest_dir:
+                    try:
+                        shutil.rmtree(oldest_dir)
+                        print(f"已删除最旧目录: {oldest_dir}")
+                    except Exception as e:
+                        print(f"删除目录失败 {oldest_dir}: {e}")
+                else:
+                    print("未找到可删除的图片目录")
+            else:
+                print(f"磁盘空间充足: {free_space_gb:.1f}GB")
+            
+            # 等待60秒后再次检查
+            time.sleep(60)
+            
+        except Exception as e:
+            print(f"清理线程错误: {e}")
+            time.sleep(60)
+
+def get_free_space_gb(path: str) -> float:
+    """获取指定路径的剩余磁盘空间（GB）"""
+    try:
+        statvfs = os.statvfs(path)
+        free_bytes = statvfs.f_frsize * statvfs.f_bavail
+        return free_bytes / (1024 ** 3)  # 转换为GB
+    except Exception as e:
+        print(f"获取磁盘空间失败: {e}")
+        return float('inf')  # 返回无限大，避免误删
+
+def find_oldest_frame_directory() -> Optional[str]:
+    """找到最旧的5分钟图片目录"""
+    base_dir = VideoStreamProcessor.SAVE_FRAMES_DIR
+    
+    if not os.path.exists(base_dir):
+        return None
+    
+    oldest_dir = None
+    oldest_time = None
+    
+    try:
+        # 遍历所有流目录
+        for stream_dir in os.listdir(base_dir):
+            stream_path = os.path.join(base_dir, stream_dir)
+            if not os.path.isdir(stream_path) or not stream_dir.startswith('stream_'):
+                continue
+            
+            # 遍历该流的所有时间目录
+            for time_dir in os.listdir(stream_path):
+                time_path = os.path.join(stream_path, time_dir)
+                if not os.path.isdir(time_path):
+                    continue
+                
+                # 获取目录的修改时间
+                dir_mtime = os.path.getmtime(time_path)
+                
+                if oldest_time is None or dir_mtime < oldest_time:
+                    oldest_time = dir_mtime
+                    oldest_dir = time_path
+    
+    except Exception as e:
+        print(f"查找最旧目录时出错: {e}")
+        return None
+    
+    return oldest_dir
+
+def start_cleanup_thread():
+    """启动清理线程"""
+    global cleanup_thread, cleanup_running
+    
+    if cleanup_thread and cleanup_thread.is_alive():
+        print("清理线程已在运行")
+        return
+    
+    cleanup_running = True
+    cleanup_thread = threading.Thread(target=cleanup_loop, name="frame-cleanup")
+    cleanup_thread.start()
+    print("清理线程已启动")
+
+def stop_cleanup_thread():
+    """停止清理线程"""
+    global cleanup_thread, cleanup_running
+    
+    cleanup_running = False
+    if cleanup_thread and cleanup_thread.is_alive():
+        cleanup_thread.join(timeout=5.0)
+        if cleanup_thread.is_alive():
+            print("警告: 清理线程未能在5秒内正常结束")
+        else:
+            print("清理线程已停止")
+
 def shutdown_all_processors():
     """关闭所有活跃的视频流处理器"""
     print(f"正在关闭 {len(active_processors)} 个视频流处理器...")
+    
+    # 停止清理线程
+    stop_cleanup_thread()
     
     # 复制一份 keys，避免在迭代时修改字典
     processor_ids = list(active_processors.keys())

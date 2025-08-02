@@ -14,7 +14,7 @@ class CoreConfig(AppConfig):
         
         # 导入模型和处理器
         from .models import VideoStream
-        from .stream.video_processor import create_processor
+        from .stream.video_processor import create_processor, start_cleanup_thread
         
         # 加载并启动所有启用的视频流
         try:
@@ -28,6 +28,12 @@ class CoreConfig(AppConfig):
         except Exception as e:
             # 数据库可能还未初始化，忽略错误
             print(f"加载视频流时出错（可能是数据库未初始化）: {e}")
+        
+        # 启动清理线程
+        try:
+            start_cleanup_thread()
+        except Exception as e:
+            print(f"启动清理线程失败: {e}")
     
     def _register_signal_handlers(self):
         """注册信号处理器"""
