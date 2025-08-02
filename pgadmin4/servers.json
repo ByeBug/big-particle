@@ -5,7 +5,7 @@
             "Group": "Servers",
             "Port": 5432,
             "Username": "bigparticle",
-            "Host": "pgsql-bigparticle",
+            "Host": "pgsql",
             "SSLMode": "disable",
             "MaintenanceDB": "bigparticle"
         }
