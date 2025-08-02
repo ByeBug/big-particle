@@ -208,3 +208,14 @@ class BaseDecoder(ABC):
     
     def __repr__(self):
         return f"{self.__class__.__name__}(video_stream={self.video_stream}, fps={self.fps})"
+    
+    def __del__(self):
+        """
+        析构函数，确保实例被垃圾回收时正确清理
+        """
+        try:
+            if self._is_opened:
+                self.close()
+        except Exception:
+            # 在析构函数中忽略异常
+            pass

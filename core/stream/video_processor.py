@@ -4,6 +4,7 @@ import threading
 from typing import Optional
 
 from .delayed_queue import DelayedQueue
+from .decoder import DecoderFactory
 
 
 class VideoStreamProcessor:
@@ -29,6 +30,10 @@ class VideoStreamProcessor:
         
         # 控制标志
         self.running = False
+        
+        # Decoder 相关
+        self.decoder = None
+        self.decoder_valid = False
     
     def start(self):
         """启动所有处理线程"""
@@ -37,6 +42,7 @@ class VideoStreamProcessor:
         
         self.running = True
         
+        # TODO decode 线程中，decoder 有效则创建推理和编码线程；无效则停止推理和编码线程
         self.decode_thread = threading.Thread(target=self.decode_loop, name=f"decode-{self.video_stream.id}")
         self.infer_thread = threading.Thread(target=self.infer_loop, name=f"infer-{self.video_stream.id}")
         self.encode_thread = threading.Thread(target=self.encode_loop, name=f"encode-{self.video_stream.id}")
@@ -59,10 +65,20 @@ class VideoStreamProcessor:
     
     def decode_loop(self):
         """解码线程：读取视频帧并分发到推理和编码队列"""
+        # TODO 设置数据库中流宽高、状态
         while self.running:
+            # 如果 decoder 无效，尝试创建和打开
+            if not self.decoder_valid:
+                self._init_decoder()
+                if not self.decoder_valid:
+                    # 创建或打开失败，等待 30 秒后重试
+                    print(f"Decoder 创建失败，30秒后重试...")
+                    time.sleep(30)
+                    continue
+            
             try:
-                # TODO: 实现实际的解码逻辑
-                frame = self.decode_frame()
+                # 使用实际的 decoder 获取帧（内置时间控制）
+                frame = self.decoder.get_frame_with_timing()
                 if frame is None:
                     time.sleep(0.01)
                     continue
@@ -80,8 +96,35 @@ class VideoStreamProcessor:
                     pass  # 编码队列满，丢弃帧
                 
             except Exception as e:
-                print(f"解码线程错误: {e}")
-                time.sleep(0.1)
+                # 关闭 decoder 并标记为无效，等待30秒
+                try:
+                    self.decoder.close()
+                except Exception as close_error:
+                    print(f"关闭解码器时出错: {close_error}")
+                self.decoder = None
+                self.decoder_valid = False
+                print(f"解码异常，30秒后重试: {e}")
+                time.sleep(30)
+    
+    def _init_decoder(self):
+        """初始化 decoder：创建并打开"""
+        try:
+            # 使用工厂模式创建 decoder
+            self.decoder = DecoderFactory.create_decoder(self.video_stream, self.fps)
+            
+            # 尝试打开 decoder
+            if self.decoder.open():
+                self.decoder_valid = True
+                print(f"Decoder 初始化成功: {self.video_stream.type} - {self.video_stream.ip or self.video_stream.address}")
+            else:
+                print(f"Decoder 打开失败: {self.video_stream.type} - {self.video_stream.ip or self.video_stream.address}")
+                self.decoder = None
+                self.decoder_valid = False
+                
+        except Exception as e:
+            print(f"Decoder 初始化异常: {e}")
+            self.decoder = None
+            self.decoder_valid = False
     
     def infer_loop(self):
         """推理线程：处理推理队列中的帧"""
@@ -105,15 +148,6 @@ class VideoStreamProcessor:
             except Exception as e:
                 print(f"编码线程错误: {e}")
     
-    def decode_frame(self):
-        """解码一帧数据"""
-        # TODO: 根据 video_stream 的类型和地址实现具体解码逻辑
-        # - MVS 相机：从相机获取图像
-        # - VIDEO_FILE：从视频文件读取帧
-        # - IMAGE_DIR：从图像目录读取图片
-        time.sleep(1.0 / self.fps)  # 模拟帧率
-        return f"frame_{time.time()}"
-    
     def process_inference(self, frame):
         """处理推理"""
         # TODO: 实现大颗粒检测推理逻辑
@@ -125,6 +159,16 @@ class VideoStreamProcessor:
         # TODO: 实现编码逻辑，输出编码后的视频流
         print(f"编码处理: {frame}")
         time.sleep(0.05)  # 模拟编码时间
+    
+    def get_actual_fps(self) -> float:
+        """获取实时帧率"""
+        if self.decoder and self.decoder_valid:
+            return self.decoder.get_actual_fps()
+        return 0.0
+    
+    def is_running(self) -> bool:
+        """检查处理器是否正在运行"""
+        return self.running
 
 
 # 全局处理器管理

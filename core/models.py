@@ -7,6 +7,11 @@ class VideoStream(models.Model):
         MVS = 'mvs', 'MVS'
         VIDEO_FILE = 'video_file', 'Video File'
         IMAGE_DIR = 'image_dir', 'Image Dir'
+    
+    class Status(models.TextChoices):
+        DISABLED = 'disabled', '未启用'
+        NORMAL = 'normal', '正常'
+        ABNORMAL = 'abnormal', '异常'
         
     type = models.CharField(
         max_length=20,
@@ -46,15 +51,21 @@ class VideoStream(models.Model):
         help_text='采集帧率'
     )
     
-    actual_fps = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text='实际帧率'
-    )
-    
     enabled = models.BooleanField(
         default=True,
         help_text='是否启用'
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DISABLED,
+        help_text='运行状态'
+    )
+    
+    status_message = models.TextField(
+        blank=True,
+        help_text='状态说明'
     )
     
     created_at = models.DateTimeField(
@@ -69,4 +80,5 @@ class VideoStream(models.Model):
         ordering = ['-created_at']
         
     def __str__(self):
-        return f"{self.get_type_display()} - {self.ip}"
+        identifier = self.ip if self.type == self.StreamType.MVS else self.address
+        return f"{self.get_type_display()} - {identifier}"

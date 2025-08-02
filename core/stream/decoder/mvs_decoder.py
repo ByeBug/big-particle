@@ -270,16 +270,6 @@ class MVSDecoder(BaseDecoder):
                 if MVSDecoder._active_instances == 0:
                     MVSDecoder._finalize_sdk()
     
-    def __del__(self):
-        """
-        析构函数，确保实例被垃圾回收时正确清理
-        """
-        try:
-            if self._is_opened:
-                self.close()
-        except Exception:
-            # 在析构函数中忽略异常
-            pass
     
     def read_frame(self) -> Optional[DecodedFrame]:
         """

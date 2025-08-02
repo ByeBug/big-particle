@@ -16,10 +16,19 @@ class GroupSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class VideoStreamSerializer(serializers.ModelSerializer):
+    actual_fps = serializers.SerializerMethodField()
+    
     class Meta:
         model = VideoStream
-        fields = ['id', 'type', 'ip', 'address', 'width', 'height', 'fps', 'actual_fps', 'enabled', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at', 'width', 'height', 'actual_fps']
+        fields = ['id', 'type', 'ip', 'address', 'width', 'height', 'fps', 'actual_fps', 'enabled', 'status', 'status_message', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'width', 'height', 'actual_fps', 'status', 'status_message']
+    
+    def get_actual_fps(self, obj):
+        from .views import active_processors
+        processor = active_processors.get(obj.id)
+        if processor and hasattr(processor, 'get_actual_fps'):
+            return processor.get_actual_fps()
+        return None
     
     # 需要重启流的关键配置字段（宽高只读，不需要检测变化）
     RESTART_REQUIRED_FIELDS = ['ip', 'address', 'fps']
