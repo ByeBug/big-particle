@@ -20,6 +20,7 @@ try:
         sys.path.append(mvs_path)
     
     from MvCameraControl_class import *
+    from ctypes import string_at
     HAS_MVS_SDK = True
 except ImportError as e:
     HAS_MVS_SDK = False
@@ -289,14 +290,13 @@ class MVSDecoder(BaseDecoder):
                 opencv_image = self._convert_to_opencv_image(self._stOutFrame)
                 if opencv_image is not None:
                     # 返回 DecodedFrame 对象
-                    frame_number = self.frame_count + 1
                     timestamp = time.time()  # 使用解码时的当前时间
                     
                     return DecodedFrame(
                         ocv_image=opencv_image,
                         width=self._stOutFrame.stFrameInfo.nWidth,
                         height=self._stOutFrame.stFrameInfo.nHeight,
-                        frame_number=frame_number,
+                        frame_number=self._stOutFrame.stFrameInfo.nFrameNum,
                         timestamp=timestamp,
                         stream_id=self.video_stream.id
                     )
@@ -337,16 +337,20 @@ class MVSDecoder(BaseDecoder):
                 return None
             
             # 从 stOutFrame 获取图像信息
-            width = stOutFrame.stFrameInfo.nWidth
-            height = stOutFrame.stFrameInfo.nHeight
+            width = int(stOutFrame.stFrameInfo.nWidth)
+            height = int(stOutFrame.stFrameInfo.nHeight)
             pixel_format = stOutFrame.stFrameInfo.enPixelType
-            frame_len = stOutFrame.stFrameInfo.nFrameLen
+            frame_len = int(stOutFrame.stFrameInfo.nFrameLen)
+            
+            # print(f"图像参数: width={width}, height={height}, format={pixel_format}, len={frame_len}")
             
             if width <= 0 or height <= 0 or frame_len <= 0:
+                print(f"无效的图像参数: width={width}, height={height}, frame_len={frame_len}")
                 return None
             
             # 获取原始图像数据
-            raw_data = (c_ubyte * frame_len).from_address(stOutFrame.pBufAddr)
+            # pBufAddr 是 POINTER(c_ubyte)，直接使用指针内容
+            raw_data = string_at(stOutFrame.pBufAddr, frame_len)
             
             # 根据像素格式转换图像
             opencv_image = None
@@ -384,5 +388,9 @@ class MVSDecoder(BaseDecoder):
             return opencv_image
             
         except Exception as e:
+            import traceback
+            import time
             print(f"转换 OpenCV 图像失败: {e}")
+            traceback.print_exc()
+            time.sleep(5)  # 避免日志太多
             return None

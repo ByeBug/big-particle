@@ -322,12 +322,12 @@ def cleanup_loop():
             else:
                 print(f"磁盘空间充足: {free_space_gb:.1f}GB")
             
-            # 等待60秒后再次检查
-            time.sleep(60)
+            # 等待30秒后再次检查
+            time.sleep(30)
             
         except Exception as e:
             print(f"清理线程错误: {e}")
-            time.sleep(60)
+            time.sleep(30)
 
 def get_free_space_gb(path: str) -> float:
     """获取指定路径的剩余磁盘空间（GB）"""
@@ -384,7 +384,7 @@ def start_cleanup_thread():
         return
     
     cleanup_running = True
-    cleanup_thread = threading.Thread(target=cleanup_loop, name="frame-cleanup")
+    cleanup_thread = threading.Thread(target=cleanup_loop, name="frame-cleanup", daemon=True)
     cleanup_thread.start()
     print("清理线程已启动")
 

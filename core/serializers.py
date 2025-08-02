@@ -24,7 +24,7 @@ class VideoStreamSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at', 'width', 'height', 'actual_fps', 'status', 'status_message']
     
     def get_actual_fps(self, obj):
-        from .views import active_processors
+        from .stream.video_processor import active_processors
         processor = active_processors.get(obj.id)
         if processor and hasattr(processor, 'get_actual_fps'):
             return processor.get_actual_fps()
