@@ -1,6 +1,8 @@
 import time
 import queue
 import threading
+import os
+from datetime import datetime
 from typing import Optional
 
 from .delayed_queue import DelayedQueue
@@ -16,6 +18,9 @@ class VideoStreamProcessor:
     # 控制是否启用推理和编码，暂时关闭
     ENABLE_INFER = False
     ENABLE_ENCODE = False
+    ENABLE_SAVE = True  # 启用帧保存功能
+
+    SAVE_FRAMES_DIR = "/data/big-particle-data/storage/saved_frames"
     
     def __init__(self, video_stream):
         self.video_stream = video_stream
@@ -26,14 +31,18 @@ class VideoStreamProcessor:
         # 编码队列大小 = fps * (延迟时间 + 缓冲时间)
         encode_queue_size = int(self.fps * (self.ENCODE_DELAY_SEC + 1))
         self.encode_queue = DelayedQueue(delay_seconds=self.ENCODE_DELAY_SEC, maxsize=encode_queue_size)
+        # 保存队列，缓冲大小为 fps 的 2 倍
+        self.save_queue = queue.Queue(maxsize=self.fps * 2)
         
         # 线程
         self.decode_thread = None
         self.infer_thread = None
         self.encode_thread = None
+        self.save_thread = None
         
         # 控制标志
         self.running = False
+        self._stop_save_thread = False  # 专门控制保存线程的停止
         
         # Decoder 相关
         self.decoder = None
@@ -52,12 +61,16 @@ class VideoStreamProcessor:
             self.infer_thread = threading.Thread(target=self.infer_loop, name=f"infer-{self.video_stream.id}")
         if self.ENABLE_ENCODE:
             self.encode_thread = threading.Thread(target=self.encode_loop, name=f"encode-{self.video_stream.id}")
+        if self.ENABLE_SAVE and self.video_stream.save_frames:
+            self.save_thread = threading.Thread(target=self.save_loop, name=f"save-{self.video_stream.id}")
         
         self.decode_thread.start()
         if self.ENABLE_INFER:
             self.infer_thread.start()
         if self.ENABLE_ENCODE:
             self.encode_thread.start()
+        if self.ENABLE_SAVE and self.video_stream.save_frames:
+            self.save_thread.start()
     
     def stop(self):
         """停止所有处理线程"""
@@ -69,6 +82,8 @@ class VideoStreamProcessor:
             threads.append(self.infer_thread)
         if self.ENABLE_ENCODE:
             threads.append(self.encode_thread)
+        if self.ENABLE_SAVE and self.save_thread:
+            threads.append(self.save_thread)
         for thread in threads:
             if thread and thread.is_alive():
                 thread.join(timeout=5.0)  # 最多等待5秒
@@ -108,6 +123,13 @@ class VideoStreamProcessor:
                         self.encode_queue.put_nowait(frame)
                 except queue.Full:
                     pass  # 编码队列满，丢弃帧
+                
+                # 尝试加入保存队列
+                try:
+                    if self.ENABLE_SAVE and self.video_stream.save_frames:
+                        self.save_queue.put_nowait(frame)
+                except queue.Full:
+                    pass  # 保存队列满，丢弃帧
                 
             except Exception as e:
                 # 关闭 decoder 并标记为无效，等待30秒
@@ -174,6 +196,40 @@ class VideoStreamProcessor:
         print(f"编码处理: {frame}")
         time.sleep(0.05)  # 模拟编码时间
     
+    def save_loop(self):
+        """保存线程：保存帧到磁盘，每5分钟创建新文件夹"""
+        save_dir = None
+        frame_count = 0
+        
+        while self.running and not self._stop_save_thread:
+            try:
+                frame = self.save_queue.get(timeout=1.0)
+                frame_count += 1
+                
+                # 每500帧检查一次是否需要创建新的5分钟文件夹
+                if frame_count % 500 == 1 or save_dir is None:
+                    now = datetime.now()
+                    # 每5分钟创建一个文件夹，向下取整到5分钟的倍数
+                    minute = now.minute // 5 * 5
+                    folder_name = f"{now.strftime('%Y%m%d_%H')}{minute:02d}"
+                    save_dir = os.path.join(self.SAVE_FRAMES_DIR, f"stream_{self.video_stream.id}", folder_name)
+                    os.makedirs(save_dir, exist_ok=True)
+                    print(f"检查保存目录: {save_dir}")
+                
+                # 生成文件名：时间戳
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # 毫秒精度
+                filename = f"{timestamp}.png"
+                filepath = os.path.join(save_dir, filename)
+                
+                # 使用 DecodedFrame 的 save 方法保存
+                if not frame.save(filepath):
+                    print(f"保存帧失败: {filepath}")
+                
+            except queue.Empty:
+                continue
+            except Exception as e:
+                print(f"保存线程错误: {e}")
+    
     def get_actual_fps(self) -> float:
         """获取实时帧率"""
         if self.decoder and self.decoder_valid:
@@ -183,6 +239,32 @@ class VideoStreamProcessor:
     def is_running(self) -> bool:
         """检查处理器是否正在运行"""
         return self.running
+    
+    def start_save_thread(self):
+        """动态启动保存线程"""
+        if not self.ENABLE_SAVE or not self.video_stream.save_frames:
+            return
+        
+        if self.save_thread and self.save_thread.is_alive():
+            print(f"保存线程已在运行: {self.video_stream.id}")
+            return
+            
+        self.save_thread = threading.Thread(target=self.save_loop, name=f"save-{self.video_stream.id}")
+        self.save_thread.start()
+        print(f"启动保存线程: {self.video_stream.id}")
+    
+    def stop_save_thread(self):
+        """动态停止保存线程"""
+        if self.save_thread and self.save_thread.is_alive():
+            # 通过设置 _stop_save_thread 标志停止保存线程
+            self._stop_save_thread = True
+            self.save_thread.join(timeout=2.0)
+            if self.save_thread.is_alive():
+                print(f"警告: 保存线程未能在2秒内正常结束: {self.video_stream.id}")
+            else:
+                print(f"停止保存线程: {self.video_stream.id}")
+            self.save_thread = None
+            self._stop_save_thread = False
 
 
 # 全局处理器管理

@@ -68,6 +68,11 @@ class VideoStream(models.Model):
         help_text='状态说明'
     )
     
+    save_frames = models.BooleanField(
+        default=False,
+        help_text='是否保存帧为图片'
+    )
+    
     created_at = models.DateTimeField(
         auto_now_add=True
     )

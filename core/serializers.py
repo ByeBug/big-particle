@@ -20,7 +20,7 @@ class VideoStreamSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = VideoStream
-        fields = ['id', 'type', 'ip', 'address', 'width', 'height', 'fps', 'actual_fps', 'enabled', 'status', 'status_message', 'created_at', 'updated_at']
+        fields = ['id', 'type', 'ip', 'address', 'width', 'height', 'fps', 'actual_fps', 'enabled', 'status', 'status_message', 'save_frames', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at', 'width', 'height', 'actual_fps', 'status', 'status_message']
     
     def get_actual_fps(self, obj):
@@ -45,8 +45,17 @@ class VideoStreamSerializer(serializers.ModelSerializer):
                     restart_required = True
                     break
         
-        # 保存重启标记到实例，供 perform_update 使用
+        # 检查 save_frames 字段变化
+        save_frames_changed = False
+        if 'save_frames' in validated_data:
+            old_save_frames = getattr(instance, 'save_frames')
+            new_save_frames = validated_data['save_frames']
+            if old_save_frames != new_save_frames:
+                save_frames_changed = True
+        
+        # 保存标记到实例，供 perform_update 使用
         instance._restart_required = restart_required
+        instance._save_frames_changed = save_frames_changed
         
         # 修改时不允许更新 type（保持原有逻辑）
         if 'type' in validated_data:
