@@ -12,6 +12,10 @@ class VideoStreamProcessor:
     # TODO 流的运行状态、宽高、实际 fps 更新到数据库
     
     ENCODE_DELAY_SEC = 0.5  # 编码延迟时间（秒）
+
+    # 控制是否启用推理和编码，暂时关闭
+    ENABLE_INFER = False
+    ENABLE_ENCODE = False
     
     def __init__(self, video_stream):
         self.video_stream = video_stream
@@ -44,19 +48,27 @@ class VideoStreamProcessor:
         
         # TODO decode 线程中，decoder 有效则创建推理和编码线程；无效则停止推理和编码线程
         self.decode_thread = threading.Thread(target=self.decode_loop, name=f"decode-{self.video_stream.id}")
-        self.infer_thread = threading.Thread(target=self.infer_loop, name=f"infer-{self.video_stream.id}")
-        self.encode_thread = threading.Thread(target=self.encode_loop, name=f"encode-{self.video_stream.id}")
+        if self.ENABLE_INFER:
+            self.infer_thread = threading.Thread(target=self.infer_loop, name=f"infer-{self.video_stream.id}")
+        if self.ENABLE_ENCODE:
+            self.encode_thread = threading.Thread(target=self.encode_loop, name=f"encode-{self.video_stream.id}")
         
         self.decode_thread.start()
-        self.infer_thread.start()
-        self.encode_thread.start()
+        if self.ENABLE_INFER:
+            self.infer_thread.start()
+        if self.ENABLE_ENCODE:
+            self.encode_thread.start()
     
     def stop(self):
         """停止所有处理线程"""
         self.running = False
         
         # 等待所有线程正常结束
-        threads = [self.decode_thread, self.infer_thread, self.encode_thread]
+        threads = [self.decode_thread]
+        if self.ENABLE_INFER:
+            threads.append(self.infer_thread)
+        if self.ENABLE_ENCODE:
+            threads.append(self.encode_thread)
         for thread in threads:
             if thread and thread.is_alive():
                 thread.join(timeout=5.0)  # 最多等待5秒
@@ -85,13 +97,15 @@ class VideoStreamProcessor:
                 
                 # 尝试加入推理队列
                 try:
-                    self.infer_queue.put_nowait(frame)
+                    if self.ENABLE_INFER:
+                        self.infer_queue.put_nowait(frame)
                 except queue.Full:
                     pass  # 推理队列满，丢弃帧
                 
                 # 尝试加入编码队列（延时500ms出队）
                 try:
-                    self.encode_queue.put_nowait(frame)
+                    if self.ENABLE_ENCODE:
+                        self.encode_queue.put_nowait(frame)
                 except queue.Full:
                     pass  # 编码队列满，丢弃帧
                 
