@@ -2,6 +2,12 @@
 url = "https://mirrors.ustc.edu.cn/pypi/simple"
 default = true
 
+[tool.pyright]
+extraPaths = ["/opt/MVS/Samples/64/Python/MvImport"]
+ignore = [
+    "mvs_samples"
+]
+
 [project]
 name = "big-particle-backend"
 version = "0.1.0"
