@@ -8,6 +8,7 @@ import threading
 import cv2
 import numpy as np
 from typing import Optional
+from ctypes import string_at
 
 from .base import BaseDecoder
 from ..frame import DecodedFrame
@@ -19,7 +20,6 @@ try:
         sys.path.append(mvs_path)
     
     from MvCameraControl_class import *
-    from ctypes import string_at
     HAS_MVS_SDK = True
 except ImportError as e:
     HAS_MVS_SDK = False
@@ -32,9 +32,9 @@ class MVSDecoder(BaseDecoder):
     用于从 MVS 相机获取图像数据
     """
     
-    # 类变量：SDK 初始化状态和实例计数（线程安全）
+    # 类变量：SDK 初始化状态和实例集合（线程安全）
     _sdk_initialized = False
-    _active_instances = 0  # 活跃实例计数
+    _active_instances = set()  # 活跃实例集合
     _class_lock = threading.Lock()  # 类级别的锁，保护类变量
     
     def __init__(self, video_stream):
@@ -46,14 +46,14 @@ class MVSDecoder(BaseDecoder):
             print("MVS SDK 不可用，请安装 MVS 相机驱动")
             raise _MVS_IMPORT_ERROR
         
-        # 线程安全的 SDK 初始化和实例计数
+        # 线程安全的 SDK 初始化和实例注册
         with MVSDecoder._class_lock:
             # 初始化 MVS SDK（只初始化一次）
             if not MVSDecoder._sdk_initialized:
                 MVSDecoder._initialize_sdk()
             
-            # 增加实例计数
-            MVSDecoder._active_instances += 1
+            # 注册当前实例
+            MVSDecoder._active_instances.add(self)
     
     @classmethod
     def _initialize_sdk(cls):
@@ -109,7 +109,7 @@ class MVSDecoder(BaseDecoder):
             cls._sdk_initialized = False
     
     @classmethod
-    def get_active_instances(cls) -> int:
+    def get_active_instances_count(cls) -> int:
         """
         获取活跃实例数量（线程安全）
         
@@ -117,7 +117,7 @@ class MVSDecoder(BaseDecoder):
             int: 活跃实例数量
         """
         with cls._class_lock:
-            return cls._active_instances
+            return len(cls._active_instances)
     
     def open(self) -> bool:
         """
@@ -270,13 +270,13 @@ class MVSDecoder(BaseDecoder):
         except Exception as e:
             print(f"关闭 MVS 相机失败: {e}")
         finally:
-            # 线程安全的实例计数管理和 SDK 清理
+            # 线程安全的实例管理和 SDK 清理
             with MVSDecoder._class_lock:
-                # 减少实例计数
-                MVSDecoder._active_instances = max(0, MVSDecoder._active_instances - 1)
+                # 移除当前实例
+                MVSDecoder._active_instances.discard(self)
                 
                 # 如果没有活跃实例了，清理 SDK
-                if MVSDecoder._active_instances == 0:
+                if len(MVSDecoder._active_instances) == 0:
                     MVSDecoder._finalize_sdk()
     
     

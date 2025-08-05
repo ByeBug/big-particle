@@ -173,6 +173,7 @@ class VideoStreamProcessor:
                 print(f"Decoder 初始化成功: {self.video_stream.type} - {self.video_stream.address}")
             else:
                 print(f"Decoder 打开失败: {self.video_stream.type} - {self.video_stream.address}")
+                self.decoder.close()
                 self.decoder = None
                 self.decoder_valid = False
                 
