@@ -8,11 +8,11 @@ from typing import Optional
 
 from .delayed_queue import DelayedQueue
 from .decoder import DecoderFactory
+from django.db import transaction
 
 
 class VideoStreamProcessor:
     """视频流处理器：包含解码、推理、编码三个线程"""
-    # TODO 流的运行状态、宽高、实际 fps 更新到数据库
     
     ENCODE_DELAY_SEC = 0.5  # 编码延迟时间（秒）
 
@@ -26,6 +26,7 @@ class VideoStreamProcessor:
     
     def __init__(self, video_stream):
         self.video_stream = video_stream
+        # 视频流不需要设置采集帧率，为构建队列，预设为 30
         self.fps = video_stream.fps or 30
         
         # 队列设置
@@ -96,17 +97,28 @@ class VideoStreamProcessor:
     
     def decode_loop(self):
         """解码线程：读取视频帧并分发到推理和编码队列"""
-        # TODO 设置数据库中流宽高、状态
         while self.running:
             # 如果 decoder 无效，尝试创建和打开
             if not self.decoder_valid:
                 self._init_decoder()
                 if not self.decoder_valid:
-                    # 创建或打开失败，等待 30 秒后重试
+                    # 创建或打开失败，更新状态并等待 30 秒后重试
                     print(f"Decoder 创建失败，30秒后重试...")
+                    message = 'Decoder 打开失败'
+                    if self.video_stream.status != 'abnormal' or self.video_stream.status_message != message:
+                        self._update_stream_status('abnormal', message)
                     if self._stop_event.wait(timeout=30):  # 等待停止事件，最多30秒
                         return  # 收到停止信号，立即退出
                     continue
+                else:
+                    # 成功初始化 decoder，更新状态和流信息到数据库
+                    if self.video_stream.status != 'normal':
+                        self._update_stream_status('normal', '')
+                    self._update_stream_info(
+                        width=self.decoder.width,
+                        height=self.decoder.height,
+                        fps=self.decoder.fps
+                    )
             
             try:
                 # 使用实际的 decoder 获取帧（内置时间控制）
@@ -122,7 +134,7 @@ class VideoStreamProcessor:
                 except queue.Full:
                     pass  # 推理队列满，丢弃帧
                 
-                # 尝试加入编码队列（延时500ms出队）
+                # 尝试加入编码队列
                 try:
                     if self.ENABLE_ENCODE:
                         self.encode_queue.put_nowait(frame)
@@ -145,6 +157,7 @@ class VideoStreamProcessor:
                 self.decoder = None
                 self.decoder_valid = False
                 print(f"解码异常，30秒后重试: {e}")
+                self._update_stream_status('abnormal', f'解码异常: {str(e)}')
                 if self._stop_event.wait(timeout=30):  # 等待停止事件，最多30秒
                     return  # 收到停止信号，立即退出
     
@@ -152,7 +165,7 @@ class VideoStreamProcessor:
         """初始化 decoder：创建并打开"""
         try:
             # 使用工厂模式创建 decoder
-            self.decoder = DecoderFactory.create_decoder(self.video_stream, self.fps)
+            self.decoder = DecoderFactory.create_decoder(self.video_stream)
             
             # 尝试打开 decoder
             if self.decoder.open():
@@ -245,6 +258,54 @@ class VideoStreamProcessor:
     def is_running(self) -> bool:
         """检查处理器是否正在运行"""
         return self.running
+    
+    def _update_stream_status(self, status: str, message: str = ""):
+        """更新数据库中的视频流状态"""
+        try:
+            with transaction.atomic():
+                # 重新从数据库获取最新对象，避免并发修改冲突
+                from core.models import VideoStream
+                stream = VideoStream.objects.select_for_update().get(id=self.video_stream.id)
+                stream.status = status
+                stream.status_message = message
+                stream.save(update_fields=['status', 'status_message', 'updated_at'])
+                # 同步更新内存中的对象
+                self.video_stream.status = status
+                self.video_stream.status_message = message
+        except Exception as e:
+            print(f"更新视频流状态失败: {e}")
+    
+    def _update_stream_info(self, width: int = None, height: int = None, fps: int = None):
+        """更新数据库中的视频流信息（宽高、fps）"""
+        try:
+            with transaction.atomic():
+                # 重新从数据库获取最新对象，避免并发修改冲突
+                from core.models import VideoStream
+                stream = VideoStream.objects.select_for_update().get(id=self.video_stream.id)
+                
+                update_fields = ['updated_at']
+                
+                if width is not None and width > 0:
+                    stream.width = width
+                    self.video_stream.width = width
+                    update_fields.append('width')
+                
+                if height is not None and height > 0:
+                    stream.height = height
+                    self.video_stream.height = height
+                    update_fields.append('height')
+                
+                if fps is not None and fps > 0:
+                    stream.fps = fps
+                    self.video_stream.fps = fps
+                    update_fields.append('fps')
+                
+                if len(update_fields) > 1:  # 有字段需要更新
+                    stream.save(update_fields=update_fields)
+                    print(f"更新视频流信息: width={width}, height={height}, fps={fps}")
+                
+        except Exception as e:
+            print(f"更新视频流信息失败: {e}")
     
     def start_save_thread(self):
         """动态启动保存线程"""

@@ -21,8 +21,8 @@ class ImageDirDecoder(BaseDecoder):
     # 支持的图像格式
     SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
     
-    def __init__(self, video_stream, fps: Optional[int] = None):
-        super().__init__(video_stream, fps)
+    def __init__(self, video_stream):
+        super().__init__(video_stream)
         self._image_files: List[str] = []
         self._current_index = 0
     
@@ -74,10 +74,8 @@ class ImageDirDecoder(BaseDecoder):
                 return False
             
             # 更新实例属性
-            if not self.width:
-                self.width = first_image.shape[1]
-            if not self.height:
-                self.height = first_image.shape[0]
+            self.width = first_image.shape[1]
+            self.height = first_image.shape[0]
             
             self._current_index = 0
             self._is_opened = True
@@ -135,15 +133,12 @@ class ImageDirDecoder(BaseDecoder):
             # 准备下一张图像的索引（循环播放）
             self._current_index = (self._current_index + 1) % len(self._image_files)
             
-            # 使用当前时间戳作为时间戳
-            timestamp = time.time()
-            
             return DecodedFrame(
                 ocv_image=image,
                 width=image.shape[1],
                 height=image.shape[0],
                 frame_number=current_frame_number,
-                timestamp=timestamp,
+                timestamp=time.time(),
                 stream_id=self.video_stream.id
             )
                 

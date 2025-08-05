@@ -24,13 +24,12 @@ class DecoderFactory:
     }
     
     @classmethod
-    def create_decoder(cls, video_stream: VideoStream, fps: Optional[int] = None) -> BaseDecoder:
+    def create_decoder(cls, video_stream: VideoStream) -> BaseDecoder:
         """
         创建解码器实例
         
         Args:
             video_stream: VideoStream 模型实例
-            fps: 目标帧率，如果为 None 则使用 video_stream.fps
             
         Returns:
             BaseDecoder: 解码器实例
@@ -47,7 +46,7 @@ class DecoderFactory:
         decoder_class = cls.DECODER_MAPPING[stream_type]
         
         try:
-            return decoder_class(video_stream, fps)
+            return decoder_class(video_stream)
         except Exception as e:
             raise RuntimeError(f"创建 {stream_type} 解码器失败: {e}")
     

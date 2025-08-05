@@ -18,8 +18,8 @@ class VideoFileDecoder(BaseDecoder):
     TODO 视频应尊重文件的帧率，而不是设置的采集帧率
     """
     
-    def __init__(self, video_stream, fps: Optional[int] = None):
-        super().__init__(video_stream, fps)
+    def __init__(self, video_stream):
+        super().__init__(video_stream)
         self._cap = None
     
     def open(self) -> bool:
@@ -50,19 +50,18 @@ class VideoFileDecoder(BaseDecoder):
                 return False
             
             # 获取视频信息
-            video_fps = self._cap.get(cv2.CAP_PROP_FPS)
+            video_fps = int(round(self._cap.get(cv2.CAP_PROP_FPS)))
             video_width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             video_height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             frame_count = int(self._cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
             # 更新实例属性
-            if not self.fps or self.fps <= 0:
-                self.fps = max(1, int(video_fps))
+            self.width = video_width
+            self.height = video_height
+            self.fps = video_fps
             
-            if not self.width:
-                self.width = video_width
-            if not self.height:
-                self.height = video_height
+            # 更新了 fps 要重新设置 interval
+            self._target_interval = 1.0 / self.fps if self.fps else 0.1
             
             self._is_opened = True
             self.reset_stats()

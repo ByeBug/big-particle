@@ -22,21 +22,20 @@ class BaseDecoder(ABC):
     - 图像目录
     """
     
-    def __init__(self, video_stream, fps: Optional[int] = None):
+    def __init__(self, video_stream):
         """
         初始化解码器
         
         Args:
             video_stream: VideoStream 模型实例
-            fps: 目标帧率，如果为 None 则使用 video_stream.fps
         """
         self.video_stream = video_stream
-        self.fps = fps or video_stream.fps or 30
-        self.width = video_stream.width
-        self.height = video_stream.height
+        self.fps = video_stream.fps
+        self.width = 0
+        self.height = 0
         
         # 帧率控制
-        self._target_interval = 1.0 / self.fps
+        self._target_interval = 1.0 / self.fps if self.fps else 0.1
         
         # 状态管理
         self._is_opened = False

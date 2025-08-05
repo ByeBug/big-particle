@@ -37,8 +37,8 @@ class MVSDecoder(BaseDecoder):
     _active_instances = 0  # 活跃实例计数
     _class_lock = threading.Lock()  # 类级别的锁，保护类变量
     
-    def __init__(self, video_stream, fps: Optional[int] = None):
-        super().__init__(video_stream, fps)
+    def __init__(self, video_stream):
+        super().__init__(video_stream)
         self._camera: MvCamera = None
         
         # 检查 MVS SDK 是否可用
@@ -140,10 +140,6 @@ class MVSDecoder(BaseDecoder):
                 print(f"枚举设备失败，错误码: {ret:#X}")
                 return False
             
-            if device_list.nDeviceNum == 0:
-                print("未找到 MVS 设备")
-                return False
-            
             # 查找指定 IP 的设备
             target_ip = self.video_stream.address
             device_index = None
@@ -152,7 +148,7 @@ class MVSDecoder(BaseDecoder):
             for i in range(device_list.nDeviceNum):
                 mvcc_dev_info = cast(device_list.pDeviceInfo[i], POINTER(MV_CC_DEVICE_INFO)).contents
                 if mvcc_dev_info.nTLayerType == MV_GIGE_DEVICE or mvcc_dev_info.nTLayerType == MV_GENTL_GIGE_DEVICE:
-                    print(f"\ngige device: [{i}]")
+                    # print(f"\ngige device: [{i}]")
 
                     device_ip = ".".join([
                         str((mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentIp & 0xff000000) >> 24),
@@ -160,7 +156,7 @@ class MVSDecoder(BaseDecoder):
                         str((mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentIp & 0x0000ff00) >> 8),
                         str(mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentIp & 0x000000ff)
                     ])
-                    print(f'ip: {device_ip}')
+                    # print(f'ip: {device_ip}')
 
                     # 设备型号
                     strModeName = ""
@@ -168,7 +164,7 @@ class MVSDecoder(BaseDecoder):
                         if per == 0:
                             break
                         strModeName = strModeName + chr(per)
-                    print("model name: %s" % strModeName)
+                    # print(f"mode name: {strModeName}")
 
                     # 序列号
                     strSerialNumber = ""
@@ -176,7 +172,7 @@ class MVSDecoder(BaseDecoder):
                         if per == 0:
                             break
                         strSerialNumber = strSerialNumber + chr(per)
-                    print("serial number: %s" % strSerialNumber)
+                    # print(f"serial number: {strSerialNumber}")
                     
                     if device_ip == target_ip:
                         device_index = i
@@ -228,6 +224,19 @@ class MVSDecoder(BaseDecoder):
             # 创建图像缓存
             self._stOutFrame = MV_FRAME_OUT()
             memset(byref(self._stOutFrame), 0, sizeof(self._stOutFrame))
+
+            # 读取第一帧图像获取尺寸信息
+            first_frame = self.read_frame()
+            if first_frame is None:
+                print("无法获取第一帧图像")
+                self._camera.MV_CC_StopGrabbing()
+                self._camera.MV_CC_CloseDevice()
+                self._camera.MV_CC_DestroyHandle()
+                return False
+            
+            # 更新实例属性
+            self.width = first_frame.width
+            self.height = first_frame.height
 
             self._is_opened = True
             self.reset_stats()
@@ -289,14 +298,12 @@ class MVSDecoder(BaseDecoder):
                 opencv_image = self._convert_to_opencv_image(self._stOutFrame)
                 if opencv_image is not None:
                     # 返回 DecodedFrame 对象
-                    timestamp = time.time()  # 使用解码时的当前时间
-                    
                     return DecodedFrame(
                         ocv_image=opencv_image,
                         width=self._stOutFrame.stFrameInfo.nWidth,
                         height=self._stOutFrame.stFrameInfo.nHeight,
                         frame_number=self._stOutFrame.stFrameInfo.nFrameNum,
-                        timestamp=timestamp,
+                        timestamp=time.time(),
                         stream_id=self.video_stream.id
                     )
                 else:
