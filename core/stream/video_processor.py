@@ -153,9 +153,9 @@ class VideoStreamProcessor:
             # 尝试打开 decoder
             if self.decoder.open():
                 self.decoder_valid = True
-                print(f"Decoder 初始化成功: {self.video_stream.type} - {self.video_stream.ip or self.video_stream.address}")
+                print(f"Decoder 初始化成功: {self.video_stream.type} - {self.video_stream.address}")
             else:
-                print(f"Decoder 打开失败: {self.video_stream.type} - {self.video_stream.ip or self.video_stream.address}")
+                print(f"Decoder 打开失败: {self.video_stream.type} - {self.video_stream.address}")
                 self.decoder = None
                 self.decoder_valid = False
                 

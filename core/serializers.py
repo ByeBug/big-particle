@@ -15,13 +15,13 @@ class GroupSerializer(serializers.HyperlinkedModelSerializer):
         fields = ['url', 'id', 'name']
 
 
-class VideoStreamSerializer(serializers.ModelSerializer):
+class VideoStreamSerializer(serializers.HyperlinkedModelSerializer):
     actual_fps = serializers.SerializerMethodField()
     
     class Meta:
         model = VideoStream
-        fields = ['id', 'type', 'ip', 'address', 'width', 'height', 'fps', 'actual_fps', 'enabled', 'status', 'status_message', 'save_frames', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at', 'width', 'height', 'actual_fps', 'status', 'status_message']
+        fields = ['url', 'id', 'type', 'name', 'ip', 'address', 'width', 'height', 'fps', 'actual_fps', 'enabled', 'status', 'status_message', 'save_frames', 'created_at', 'updated_at']
+        read_only_fields = ['url', 'created_at', 'updated_at', 'width', 'height', 'actual_fps', 'status', 'status_message', 'ip']
     
     def get_actual_fps(self, obj):
         from .stream.video_processor import active_processors
@@ -31,7 +31,7 @@ class VideoStreamSerializer(serializers.ModelSerializer):
         return None
     
     # 需要重启流的关键配置字段（宽高只读，不需要检测变化）
-    RESTART_REQUIRED_FIELDS = ['ip', 'address', 'fps']
+    RESTART_REQUIRED_FIELDS = ['address', 'fps']
     
     def update(self, instance, validated_data):
         # 检查是否有需要重启的配置变更
@@ -57,30 +57,60 @@ class VideoStreamSerializer(serializers.ModelSerializer):
         instance._restart_required = restart_required
         instance._save_frames_changed = save_frames_changed
         
-        # 修改时不允许更新 type（保持原有逻辑）
-        if 'type' in validated_data:
-            validated_data.pop('type')
-        
         return super().update(instance, validated_data)
     
     def validate(self, data):
-        type_value = data.get('type')
-        ip = data.get('ip')
-        address = data.get('address')
+        import ipaddress
         
-        # 添加时的验证
-        if not self.instance:  # 创建时
-            if type_value == 'mvs':
-                if not ip:
-                    raise serializers.ValidationError("MVS 类型必须提供 IP 地址")
-            else:
-                if not address:
-                    raise serializers.ValidationError("非 MVS 类型必须提供 address")
+        # 清理所有字符串字段的前后空白
+        for field, value in data.items():
+            if isinstance(value, str):
+                data[field] = value.strip()
+        
+        # 获取当前传入的数据
+        input_type = data.get('type')
+        input_name = data.get('name')
+        input_address = data.get('address')
+        input_fps = data.get('fps')
+        
+        # 确定最终的类型和地址用于验证
+        if self.instance:  # 更新操作
+            final_type = input_type or self.instance.type
+            final_name = input_name or self.instance.name
+            final_address = input_address or self.instance.address
+        else:  # 新建操作
+            final_type = input_type
+            final_name = input_name
+            final_address = input_address
+        
+        # 新建时必须提供必填字段
+        if not self.instance:
+            if not final_name:
+                raise serializers.ValidationError("必须提供有效的 name")
+            if not final_address:
+                raise serializers.ValidationError("必须提供有效的 address")
+        
+        # 验证传入的字段
+        if input_name is not None and not input_name:
+            raise serializers.ValidationError("name 不能为空")
+        
+        if input_fps is not None:
+            if not isinstance(input_fps, int) or input_fps < 1 or input_fps > 60:
+                raise serializers.ValidationError("fps 必须是 1-60 之间的整数")
+        
+        # 如果传入了 address，需要验证格式
+        if input_address:
+            # MVS 类型的 address 必须是有效 IP
+            if final_type == 'mvs':
+                try:
+                    ipaddress.ip_address(input_address)
+                except ValueError:
+                    raise serializers.ValidationError("MVS 类型的 address 必须是有效的 IP 地址")
+                # 自动设置 ip 字段
+                data['ip'] = input_address
+        
+        # 修改时不允许更新 type
+        if self.instance and 'type' in data:
+            data.pop('type')
         
         return data
-    
-    def update(self, instance, validated_data):
-        # 修改时不允许更新 type
-        if 'type' in validated_data:
-            validated_data.pop('type')
-        return super().update(instance, validated_data)

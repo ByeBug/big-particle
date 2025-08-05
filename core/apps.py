@@ -16,18 +16,18 @@ class CoreConfig(AppConfig):
         from .models import VideoStream
         from .stream.video_processor import create_processor, start_cleanup_thread
         
-        # 加载并启动所有启用的视频流
-        try:
-            enabled_streams = VideoStream.objects.filter(enabled=True)
-            for stream in enabled_streams:
-                try:
-                    create_processor(stream)
-                    print(f"启动视频流: {stream.id} - {stream.type}")
-                except Exception as e:
-                    print(f"启动视频流 {stream.id} 失败: {e}")
-        except Exception as e:
-            # 数据库可能还未初始化，忽略错误
-            print(f"加载视频流时出错（可能是数据库未初始化）: {e}")
+        # # 加载并启动所有启用的视频流
+        # try:
+        #     enabled_streams = VideoStream.objects.filter(enabled=True)
+        #     for stream in enabled_streams:
+        #         try:
+        #             create_processor(stream)
+        #             print(f"启动视频流: {stream.id} - {stream.type}")
+        #         except Exception as e:
+        #             print(f"启动视频流 {stream.id} 失败: {e}")
+        # except Exception as e:
+        #     # 数据库可能还未初始化，忽略错误
+        #     print(f"加载视频流时出错（可能是数据库未初始化）: {e}")
         
         # 启动清理线程
         try:

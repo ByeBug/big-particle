@@ -3,7 +3,6 @@ MVS 相机解码器
 """
 
 import sys
-import os
 import time
 import threading
 import cv2
@@ -146,7 +145,7 @@ class MVSDecoder(BaseDecoder):
                 return False
             
             # 查找指定 IP 的设备
-            target_ip = self.video_stream.ip
+            target_ip = self.video_stream.address
             device_index = None
             device_info = None
             
@@ -254,7 +253,7 @@ class MVSDecoder(BaseDecoder):
                 # 销毁句柄
                 self._camera.MV_CC_DestroyHandle()
                 
-                print(f"成功关闭 MVS 相机: {self.video_stream.ip}")
+                print(f"成功关闭 MVS 相机: {self.video_stream.address}")
             
             self._camera = None
             self._is_opened = False
@@ -337,10 +336,10 @@ class MVSDecoder(BaseDecoder):
                 return None
             
             # 从 stOutFrame 获取图像信息
-            width = int(stOutFrame.stFrameInfo.nWidth)
-            height = int(stOutFrame.stFrameInfo.nHeight)
+            width = stOutFrame.stFrameInfo.nWidth
+            height = stOutFrame.stFrameInfo.nHeight
             pixel_format = stOutFrame.stFrameInfo.enPixelType
-            frame_len = int(stOutFrame.stFrameInfo.nFrameLen)
+            frame_len = stOutFrame.stFrameInfo.nFrameLen
             
             # print(f"图像参数: width={width}, height={height}, format={pixel_format}, len={frame_len}")
             
@@ -388,9 +387,5 @@ class MVSDecoder(BaseDecoder):
             return opencv_image
             
         except Exception as e:
-            import traceback
-            import time
             print(f"转换 OpenCV 图像失败: {e}")
-            traceback.print_exc()
-            time.sleep(5)  # 避免日志太多
             return None

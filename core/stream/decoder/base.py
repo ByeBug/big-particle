@@ -204,7 +204,7 @@ class BaseDecoder(ABC):
         self.close()
     
     def __str__(self):
-        return f"{self.__class__.__name__}({self.video_stream.get_type_display()}: {self.video_stream.ip or self.video_stream.address})"
+        return f"{self.__class__.__name__}({self.video_stream.get_type_display()}: {self.video_stream.address})"
     
     def __repr__(self):
         return f"{self.__class__.__name__}(video_stream={self.video_stream}, fps={self.fps})"

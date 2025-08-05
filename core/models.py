@@ -20,6 +20,11 @@ class VideoStream(models.Model):
         help_text='视频流类型'
     )
     
+    name = models.CharField(
+        max_length=100,
+        help_text='视频流名称'
+    )
+    
     ip = models.GenericIPAddressField(
         null=True,
         blank=True,
@@ -28,8 +33,6 @@ class VideoStream(models.Model):
     
     address = models.CharField(
         max_length=500,
-        null=True,
-        blank=True,
         help_text='视频流地址'
     )
     
@@ -85,5 +88,4 @@ class VideoStream(models.Model):
         ordering = ['-created_at']
         
     def __str__(self):
-        identifier = self.ip if self.type == self.StreamType.MVS else self.address
-        return f"{self.get_type_display()} - {identifier}"
+        return self.name

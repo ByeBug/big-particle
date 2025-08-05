@@ -4,8 +4,12 @@ import sys
 import os
 from datetime import datetime
 from ctypes import *
+from typing import Optional
 
-# 添加项目目录下的 MvImport 到 Python 路径
+import cv2
+import numpy as np
+
+# 添加 SDK 的 MvImport 到 Python 路径
 sys.path.append('/opt/MVS/Samples/64/Python/MvImport')
 from MvCameraControl_class import *
 
@@ -154,6 +158,97 @@ def save_raw(frame_info, cam_instance):
     return 0
 
 
+def save_by_opencv(save_type, frame_info):
+    time_str = datetime.now().strftime("%Y%m%d-%H%M%S")
+    file_path = f"images/{time_str}_fn{frame_info.stFrameInfo.nFrameNum:06d}"
+
+    if save_type == 1:
+        file_path = f"{file_path}.jpg"
+    elif save_type == 2:
+        file_path = f"{file_path}.bmp"
+    elif save_type == 3:
+        file_path = f"{file_path}.tif"
+    else:
+        file_path = f"{file_path}.png"
+    
+    opencv_image = _convert_to_opencv_image(frame_info)
+    if opencv_image is None:
+        return 1
+
+    cv2.imwrite(file_path, opencv_image)
+    return 0
+
+
+def _convert_to_opencv_image(stOutFrame) -> Optional[np.ndarray]:
+        """
+        将 MVS 相机的原始帧数据转换为 OpenCV 图像格式
+        
+        Args:
+            stOutFrame: MVS SDK 的 MV_FRAME_OUT 结构体
+            
+        Returns:
+            np.ndarray: OpenCV 图像，失败返回 None
+        """
+        try:
+            if not stOutFrame or not stOutFrame.pBufAddr:
+                return None
+            
+            # 从 stOutFrame 获取图像信息
+            width = stOutFrame.stFrameInfo.nWidth
+            height = stOutFrame.stFrameInfo.nHeight
+            pixel_format = stOutFrame.stFrameInfo.enPixelType
+            frame_len = stOutFrame.stFrameInfo.nFrameLen
+            
+            # print(f"图像参数: width={width}, height={height}, format={pixel_format}, len={frame_len}")
+            
+            if width <= 0 or height <= 0 or frame_len <= 0:
+                print(f"无效的图像参数: width={width}, height={height}, frame_len={frame_len}")
+                return None
+            
+            # 获取原始图像数据
+            # pBufAddr 是 POINTER(c_ubyte)，直接使用指针内容
+            raw_data = string_at(stOutFrame.pBufAddr, frame_len)
+            
+            # 根据像素格式转换图像
+            opencv_image = None
+            
+            # Mono8 格式
+            if pixel_format == PixelType_Gvsp_Mono8:
+                # 单通道灰度图 - 进行内存拷贝
+                image_array = np.frombuffer(raw_data, dtype=np.uint8).copy()
+                opencv_image = image_array.reshape((height, width))
+            
+            # BGR8 格式
+            elif pixel_format == PixelType_Gvsp_BGR8_Packed:
+                # 三通道彩色图 (BGR) - 进行内存拷贝
+                image_array = np.frombuffer(raw_data, dtype=np.uint8).copy()
+                opencv_image = image_array.reshape((height, width, 3))
+            
+            # RGB8 格式转 BGR
+            elif pixel_format == PixelType_Gvsp_RGB8_Packed:
+                # 三通道彩色图 (RGB -> BGR) - 进行内存拷贝
+                image_array = np.frombuffer(raw_data, dtype=np.uint8).copy()
+                rgb_image = image_array.reshape((height, width, 3))
+                opencv_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
+            
+            # YUV422 格式
+            elif pixel_format == PixelType_Gvsp_YUV422_Packed:
+                # YUV422 转 BGR - 进行内存拷贝
+                image_array = np.frombuffer(raw_data, dtype=np.uint8).copy()
+                yuv_image = image_array.reshape((height, width * 2))
+                opencv_image = cv2.cvtColor(yuv_image, cv2.COLOR_YUV2BGR_UYVY)
+            
+            else:
+                print(f"不支持的像素格式: {pixel_format}")
+            
+            # 直接返回 OpenCV 图像
+            return opencv_image
+            
+        except Exception as e:
+            print(f"转换 OpenCV 图像失败: {e}")
+            return None
+
+
 if __name__ == "__main__":
     os.makedirs("images", exist_ok=True)
 
@@ -278,6 +373,15 @@ if __name__ == "__main__":
         if int(nSaveImageType) not in {0, 1, 2, 3, 4}:
             print("input error!")
             sys.exit()
+        
+        nSaveByOpenCV = input("please input number (0-no, 1-yes): ")
+        if int(nSaveByOpenCV) not in {0, 1}:
+            print("input error!")
+            sys.exit()
+        
+        if int(nSaveByOpenCV) == 1 and int(nSaveImageType) == 0:
+            print("save raw image by OpenCV is not supported!")
+            sys.exit()
 
         # ch:创建相机实例 | en:Create Camera Object
         cam = MvCamera()
@@ -327,7 +431,7 @@ if __name__ == "__main__":
         memset(byref(stOutFrame), 0, sizeof(stOutFrame))
 
         while True:
-            c = input("'c' to continue, 'q' to quit:")
+            c = input("'c' to continue, 'q' to quit: ")
             if c == 'q':
                 break
 
@@ -336,11 +440,14 @@ if __name__ == "__main__":
                 print("get one frame: Width[%d], Height[%d], nFrameNum[%d]" % (
                 stOutFrame.stFrameInfo.nWidth, stOutFrame.stFrameInfo.nHeight, stOutFrame.stFrameInfo.nFrameNum))
 
-                # ch:如果图像是HB格式，存raw需要先解码 | en:If save raw,and the image is HB format, should to be decoded first
-                if int(nSaveImageType) == 0:
-                    ret = save_raw(stOutFrame, cam)
+                if int(nSaveByOpenCV) == 1:
+                    ret = save_by_opencv(int(nSaveImageType), stOutFrame)
                 else:
-                    ret = save_non_raw_image(int(nSaveImageType), stOutFrame, cam)
+                    # ch:如果图像是HB格式，存raw需要先解码 | en:If save raw,and the image is HB format, should to be decoded first
+                    if int(nSaveImageType) == 0:
+                        ret = save_raw(stOutFrame, cam)
+                    else:
+                        ret = save_non_raw_image(int(nSaveImageType), stOutFrame, cam)
                 if ret != 0:
                     cam.MV_CC_FreeImageBuffer(stOutFrame)
                     raise Exception("save image fail! ret[0x%x]" % ret)
