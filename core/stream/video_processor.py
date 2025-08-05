@@ -45,6 +45,7 @@ class VideoStreamProcessor:
         # 控制标志
         self.running = False
         self._stop_save_thread = False  # 专门控制保存线程的停止
+        self._stop_event = threading.Event()  # 停止事件，用于可中断等待
         
         # Decoder 相关
         self.decoder = None
@@ -77,6 +78,7 @@ class VideoStreamProcessor:
     def stop(self):
         """停止所有处理线程"""
         self.running = False
+        self._stop_event.set()  # 触发停止事件，中断等待
         
         # 等待所有线程正常结束
         threads = [self.decode_thread]
@@ -102,7 +104,8 @@ class VideoStreamProcessor:
                 if not self.decoder_valid:
                     # 创建或打开失败，等待 30 秒后重试
                     print(f"Decoder 创建失败，30秒后重试...")
-                    time.sleep(30)
+                    if self._stop_event.wait(timeout=30):  # 等待停止事件，最多30秒
+                        return  # 收到停止信号，立即退出
                     continue
             
             try:
@@ -142,7 +145,8 @@ class VideoStreamProcessor:
                 self.decoder = None
                 self.decoder_valid = False
                 print(f"解码异常，30秒后重试: {e}")
-                time.sleep(30)
+                if self._stop_event.wait(timeout=30):  # 等待停止事件，最多30秒
+                    return  # 收到停止信号，立即退出
     
     def _init_decoder(self):
         """初始化 decoder：创建并打开"""
@@ -270,7 +274,7 @@ class VideoStreamProcessor:
 
 
 # 全局处理器管理
-active_processors = {}
+active_processors: dict[int, VideoStreamProcessor] = {}
 
 # 全局清理线程
 cleanup_thread = None

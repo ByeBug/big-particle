@@ -39,6 +39,8 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
         # 检查是否需要重启流（配置变化）
         restart_required = getattr(serializer.instance, '_restart_required', False)
         save_frames_changed = getattr(serializer.instance, '_save_frames_changed', False)
+        
+        # TODO 考虑多线程并发
         existing_processor = get_processor(serializer.instance.id)
         
         # 先保存客户端数据
