@@ -16,7 +16,6 @@ class VideoStream(models.Model):
     type = models.CharField(
         max_length=20,
         choices=StreamType.choices,
-        default=StreamType.MVS,
         help_text='视频流类型'
     )
     

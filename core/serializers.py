@@ -20,7 +20,8 @@ class VideoStreamSerializer(serializers.HyperlinkedModelSerializer):
     
     class Meta:
         model = VideoStream
-        fields = ['url', 'id', 'type', 'name', 'ip', 'address', 'width', 'height', 'fps', 'actual_fps', 'enabled', 'status', 'status_message', 'save_frames', 'created_at', 'updated_at']
+        fields = ['url', 'id', 'type', 'name', 'ip', 'address', 'width', 'height', 'fps', 'actual_fps',
+                  'enabled', 'status', 'status_message', 'save_frames', 'created_at', 'updated_at']
         read_only_fields = ['url', 'created_at', 'updated_at', 'width', 'height', 'actual_fps', 'status', 'status_message', 'ip']
     
     def get_actual_fps(self, obj):
@@ -89,10 +90,21 @@ class VideoStreamSerializer(serializers.HyperlinkedModelSerializer):
                 raise serializers.ValidationError("必须提供有效的 name")
             if not final_address:
                 raise serializers.ValidationError("必须提供有效的 address")
+            # MVS 和 image_dir 类型必须提供 fps
+            if final_type in ['mvs', 'image_dir'] and not input_fps:
+                raise serializers.ValidationError(f"{final_type} 类型必须提供采集帧率 fps")
         
         # 验证传入的字段
         if input_name is not None and not input_name:
             raise serializers.ValidationError("name 不能为空")
+        
+        # 验证 name 唯一性
+        if input_name:
+            name_query = VideoStream.objects.filter(name=input_name)
+            if self.instance:  # 更新时排除自己
+                name_query = name_query.exclude(id=self.instance.id)
+            if name_query.exists():
+                raise serializers.ValidationError("该名称已存在，请使用其他名称")
         
         if input_fps is not None:
             if not isinstance(input_fps, int) or input_fps < 1 or input_fps > 60:
