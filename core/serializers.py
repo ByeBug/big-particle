@@ -34,32 +34,6 @@ class VideoStreamSerializer(serializers.HyperlinkedModelSerializer):
     # 需要重启流的关键配置字段（宽高只读，不需要检测变化）
     RESTART_REQUIRED_FIELDS = ['address', 'fps']
     
-    def update(self, instance, validated_data):
-        # 检查是否有需要重启的配置变更
-        restart_required = False
-        
-        for field in self.RESTART_REQUIRED_FIELDS:
-            if field in validated_data:
-                old_value = getattr(instance, field)
-                new_value = validated_data[field]
-                if old_value != new_value:
-                    restart_required = True
-                    break
-        
-        # 检查 save_frames 字段变化
-        save_frames_changed = False
-        if 'save_frames' in validated_data:
-            old_save_frames = getattr(instance, 'save_frames')
-            new_save_frames = validated_data['save_frames']
-            if old_save_frames != new_save_frames:
-                save_frames_changed = True
-        
-        # 保存标记到实例，供 perform_update 使用
-        instance._restart_required = restart_required
-        instance._save_frames_changed = save_frames_changed
-        
-        return super().update(instance, validated_data)
-    
     def validate(self, data):
         import ipaddress
         
@@ -79,6 +53,28 @@ class VideoStreamSerializer(serializers.HyperlinkedModelSerializer):
             final_type = input_type or self.instance.type
             final_name = input_name or self.instance.name
             final_address = input_address or self.instance.address
+            
+            # 检查是否有需要重启的配置变更
+            restart_required = False
+            for field in self.RESTART_REQUIRED_FIELDS:
+                if field in data:
+                    old_value = getattr(self.instance, field)
+                    new_value = data[field]
+                    if old_value != new_value:
+                        restart_required = True
+                        break
+            
+            # 检查 save_frames 字段变化
+            save_frames_changed = False
+            if 'save_frames' in data:
+                old_save_frames = getattr(self.instance, 'save_frames')
+                new_save_frames = data['save_frames']
+                if old_save_frames != new_save_frames:
+                    save_frames_changed = True
+            
+            # 保存标记到实例，供 perform_update 使用
+            self.instance._restart_required = restart_required
+            self.instance._save_frames_changed = save_frames_changed
         else:  # 新建操作
             final_type = input_type
             final_name = input_name

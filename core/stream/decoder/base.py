@@ -128,7 +128,7 @@ class BaseDecoder(ABC):
         
         return frame
     
-    def get_actual_fps(self) -> float:
+    def get_actual_fps(self) -> int:
         """
         获取实际帧率（基于最近5秒的数据）
         
@@ -138,16 +138,16 @@ class BaseDecoder(ABC):
         with self._lock:
             # 直接基于现有时间戳计算帧率（已经维护了5秒窗口）
             if len(self._frame_timestamps) < 2:
-                return 0.0
+                return 0
             
             # 计算时间窗口内的帧率
             time_span = self._frame_timestamps[-1] - self._frame_timestamps[0]
             if time_span <= 0:
-                return 0.0
+                return 0
             
             # 帧数 = 时间戳数量 - 1（因为第一帧不算间隔）
             frame_count = len(self._frame_timestamps) - 1
-            return frame_count / time_span
+            return round(frame_count / time_span)
     
     def get_frame_count(self) -> int:
         """

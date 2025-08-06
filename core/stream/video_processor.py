@@ -108,7 +108,7 @@ class VideoStreamProcessor:
                     if self.video_stream.status != 'abnormal' or self.video_stream.status_message != message:
                         self._update_stream_status('abnormal', message)
                     if self._stop_event.wait(timeout=30):  # 等待停止事件，最多30秒
-                        return  # 收到停止信号，立即退出
+                        break  # 收到停止信号，退出循环
                     continue
                 else:
                     # 成功初始化 decoder，更新状态和流信息到数据库
@@ -159,7 +159,16 @@ class VideoStreamProcessor:
                 print(f"解码异常，30秒后重试: {e}")
                 self._update_stream_status('abnormal', f'解码异常: {str(e)}')
                 if self._stop_event.wait(timeout=30):  # 等待停止事件，最多30秒
-                    return  # 收到停止信号，立即退出
+                    break  # 收到停止信号，退出循环
+        
+        try:
+            if self.decoder:
+                self.decoder.close()
+                self.decoder = None
+                self.decoder_valid = False
+        except Exception as e:
+            print(f"关闭解码器时出错: {e}")
+        print(f"解码线程退出")
     
     def _init_decoder(self):
         """初始化 decoder：创建并打开"""
@@ -250,11 +259,11 @@ class VideoStreamProcessor:
             except Exception as e:
                 print(f"保存线程错误: {e}")
     
-    def get_actual_fps(self) -> float:
+    def get_actual_fps(self) -> int:
         """获取实时帧率"""
         if self.decoder and self.decoder_valid:
             return self.decoder.get_actual_fps()
-        return 0.0
+        return 0
     
     def is_running(self) -> bool:
         """检查处理器是否正在运行"""

@@ -213,6 +213,12 @@ class MVSDecoder(BaseDecoder):
                 print(f"设置触发模式为 off 失败，错误码: {ret:#X}")
                 return False
             
+            # 设置采集帧率
+            ret = self._camera.MV_CC_SetFloatValue("AcquisitionFrameRate", float(self.fps))
+            if ret != 0:
+                print(f"设置采集帧率失败，错误码: {ret:#X}")
+                return False
+            
             # 开始取流
             ret = self._camera.MV_CC_StartGrabbing()
             if ret != 0:
@@ -287,7 +293,7 @@ class MVSDecoder(BaseDecoder):
         Returns:
             Optional[DecodedFrame]: 解码帧对象，失败返回 None
         """
-        if not self._is_opened or not self._camera:
+        if not self._camera:
             return None
         
         try:

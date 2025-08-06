@@ -15,7 +15,6 @@ class VideoFileDecoder(BaseDecoder):
     """视频文件解码器
     
     用于从视频文件读取帧数据
-    TODO 视频应尊重文件的帧率，而不是设置的采集帧率
     """
     
     def __init__(self, video_stream):
