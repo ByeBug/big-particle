@@ -90,6 +90,7 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
             elif save_frames_changed and existing_processor:
                 try:
                     save_frames_new = serializer.validated_data.get('save_frames', serializer.instance.save_frames)
+                    existing_processor.video_stream.save_frames = save_frames_new
                     if save_frames_new:
                         existing_processor.start_save_thread()
                     else:
