@@ -1,7 +1,10 @@
 import signal
 import sys
 import os
+import logging
 from django.apps import AppConfig
+
+logger = logging.getLogger(__name__)
 
 
 class CoreConfig(AppConfig):
@@ -27,18 +30,18 @@ class CoreConfig(AppConfig):
         try:
             start_cleanup_thread()
         except Exception as e:
-            print(f"启动清理线程失败: {e}")
+            logger.error(f"启动清理线程失败: {e}")
     
     def _register_signal_handlers(self):
         """注册信号处理器"""
         def shutdown_handler(signum, frame):
             """处理关闭信号"""
-            print(f"\n接收到信号 {signum}，正在关闭所有视频流...")
+            logger.info(f"接收到信号 {signum}，正在关闭所有视频流...")
             try:
                 from .stream.video_processor import shutdown_all_processors
                 shutdown_all_processors()
             except Exception as e:
-                print(f"关闭视频流时出错: {e}")
+                logger.error(f"关闭视频流时出错: {e}")
             
             # 调用默认的退出处理
             sys.exit(0)

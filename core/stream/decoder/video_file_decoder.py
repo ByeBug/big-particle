@@ -4,11 +4,15 @@
 
 import os
 import time
+import logging
 import cv2
 from typing import Optional
 
 from .base import BaseDecoder
 from ..frame import DecodedFrame
+from ..logging_utils import StreamLoggerAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class VideoFileDecoder(BaseDecoder):
@@ -20,6 +24,9 @@ class VideoFileDecoder(BaseDecoder):
     def __init__(self, video_stream):
         super().__init__(video_stream)
         self._cap = None
+        
+        # 带 stream_id 的logger
+        self.logger = StreamLoggerAdapter(logger, {'stream_id': video_stream.id})
     
     def open(self) -> bool:
         """
@@ -34,18 +41,18 @@ class VideoFileDecoder(BaseDecoder):
             
             file_path = self.video_stream.address
             if not file_path:
-                print("视频文件地址不能为空")
+                self.logger.error("视频文件地址不能为空")
                 return False
             
             if not os.path.exists(file_path):
-                print(f"视频文件不存在: {file_path}")
+                self.logger.error(f"视频文件不存在: {file_path}")
                 return False
             
             # 打开视频文件
             self._cap = cv2.VideoCapture(file_path)
             
             if not self._cap.isOpened():
-                print(f"无法打开视频文件: {file_path}")
+                self.logger.error(f"无法打开视频文件: {file_path}")
                 return False
             
             # 获取视频信息
@@ -65,13 +72,13 @@ class VideoFileDecoder(BaseDecoder):
             self._is_opened = True
             self.reset_stats()
             
-            print(f"成功打开视频文件: {file_path}")
-            print(f"视频信息: {video_width}x{video_height}, {video_fps}fps, {frame_count}帧")
+            self.logger.info(f"成功打开视频文件: {file_path}")
+            self.logger.info(f"视频信息: {video_width}x{video_height}, {video_fps}fps, {frame_count}帧")
             
             return True
             
         except Exception as e:
-            print(f"打开视频文件失败: {e}")
+            self.logger.error(f"打开视频文件失败: {e}")
             return False
     
     def close(self):
@@ -81,13 +88,13 @@ class VideoFileDecoder(BaseDecoder):
         try:
             if self._cap:
                 self._cap.release()
-                print(f"成功关闭视频文件: {self.video_stream.address}")
+                self.logger.info(f"成功关闭视频文件: {self.video_stream.address}")
             
             self._cap = None
             self._is_opened = False
             
         except Exception as e:
-            print(f"关闭视频文件失败: {e}")
+            self.logger.error(f"关闭视频文件失败: {e}")
     
     def read_frame(self) -> Optional[DecodedFrame]:
         """
@@ -129,7 +136,7 @@ class VideoFileDecoder(BaseDecoder):
                 return None
                 
         except Exception as e:
-            print(f"读取视频文件帧失败: {e}")
+            self.logger.error(f"读取视频文件帧失败: {e}")
             return None
     
     def is_opened(self) -> bool:
@@ -157,7 +164,7 @@ class VideoFileDecoder(BaseDecoder):
         try:
             return self._cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
         except Exception as e:
-            print(f"跳转到帧 {frame_number} 失败: {e}")
+            self.logger.error(f"跳转到帧 {frame_number} 失败: {e}")
             return False
     
     def get_total_frames(self) -> int:

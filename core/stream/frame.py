@@ -1,9 +1,11 @@
 """
 解码帧数据类
 """
-
+import logging
 import cv2
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class DecodedFrame:
@@ -87,7 +89,7 @@ class DecodedFrame:
         try:
             return cv2.imwrite(file_path, self.ocv_image)
         except Exception as e:
-            print(f"保存图像失败: {e}")
+            logger.error(f"保存图像失败: {e}")
             return False
     
     def __str__(self) -> str:

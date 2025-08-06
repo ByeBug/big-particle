@@ -3,13 +3,13 @@
 """
 
 import time
+import threading
 from abc import ABC, abstractmethod
 from collections import deque
 from typing import Optional, Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..frame import DecodedFrame
-import threading
 
 
 class BaseDecoder(ABC):

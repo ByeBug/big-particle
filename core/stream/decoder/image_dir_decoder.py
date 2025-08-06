@@ -5,11 +5,15 @@
 import os
 import glob
 import time
+import logging
 import cv2
 from typing import Optional, List
 
 from .base import BaseDecoder
 from ..frame import DecodedFrame
+from ..logging_utils import StreamLoggerAdapter
+
+logger = logging.getLogger(__name__)
 
 
 class ImageDirDecoder(BaseDecoder):
@@ -25,6 +29,9 @@ class ImageDirDecoder(BaseDecoder):
         super().__init__(video_stream)
         self._image_files: List[str] = []
         self._current_index = 0
+        
+        # 带 stream_id 的logger
+        self.logger = StreamLoggerAdapter(logger, {'stream_id': video_stream.id})
     
     def open(self) -> bool:
         """
@@ -39,15 +46,15 @@ class ImageDirDecoder(BaseDecoder):
             
             dir_path = self.video_stream.address
             if not dir_path:
-                print("图像目录地址不能为空")
+                self.logger.error("图像目录地址不能为空")
                 return False
             
             if not os.path.exists(dir_path):
-                print(f"图像目录不存在: {dir_path}")
+                self.logger.error(f"图像目录不存在: {dir_path}")
                 return False
             
             if not os.path.isdir(dir_path):
-                print(f"路径不是目录: {dir_path}")
+                self.logger.error(f"路径不是目录: {dir_path}")
                 return False
             
             # 查找所有支持的图像文件
@@ -63,14 +70,14 @@ class ImageDirDecoder(BaseDecoder):
             self._image_files.sort()
             
             if not self._image_files:
-                print(f"目录中未找到支持的图像文件: {dir_path}")
-                print(f"支持的格式: {', '.join(self.SUPPORTED_EXTENSIONS)}")
+                self.logger.error(f"目录中未找到支持的图像文件: {dir_path}")
+                self.logger.error(f"支持的格式: {', '.join(self.SUPPORTED_EXTENSIONS)}")
                 return False
             
             # 读取第一张图片获取尺寸信息
             first_image = cv2.imread(self._image_files[0])
             if first_image is None:
-                print(f"无法读取第一张图像: {self._image_files[0]}")
+                self.logger.error(f"无法读取第一张图像: {self._image_files[0]}")
                 return False
             
             # 更新实例属性
@@ -81,13 +88,13 @@ class ImageDirDecoder(BaseDecoder):
             self._is_opened = True
             self.reset_stats()
             
-            print(f"成功打开图像目录: {dir_path}")
-            print(f"找到 {len(self._image_files)} 张图像，尺寸: {self.width}x{self.height}")
+            self.logger.info(f"成功打开图像目录: {dir_path}")
+            self.logger.info(f"找到 {len(self._image_files)} 张图像，尺寸: {self.width}x{self.height}")
             
             return True
             
         except Exception as e:
-            print(f"打开图像目录失败: {e}")
+            self.logger.error(f"打开图像目录失败: {e}")
             return False
     
     def close(self):
@@ -99,10 +106,10 @@ class ImageDirDecoder(BaseDecoder):
             self._current_index = 0
             self._is_opened = False
             
-            print(f"成功关闭图像目录: {self.video_stream.address}")
+            self.logger.info(f"成功关闭图像目录: {self.video_stream.address}")
             
         except Exception as e:
-            print(f"关闭图像目录失败: {e}")
+            self.logger.error(f"关闭图像目录失败: {e}")
     
     def read_frame(self) -> Optional[DecodedFrame]:
         """
@@ -122,7 +129,7 @@ class ImageDirDecoder(BaseDecoder):
             image = cv2.imread(current_file)
             
             if image is None:
-                print(f"无法读取图像: {current_file}")
+                self.logger.error(f"无法读取图像: {current_file}")
                 # 跳到下一张图像
                 self._current_index = (self._current_index + 1) % len(self._image_files)
                 return None
@@ -143,7 +150,7 @@ class ImageDirDecoder(BaseDecoder):
             )
                 
         except Exception as e:
-            print(f"读取图像目录帧失败: {e}")
+            self.logger.error(f"读取图像目录帧失败: {e}")
             return None
     
     def is_opened(self) -> bool:

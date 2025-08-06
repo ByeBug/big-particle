@@ -5,6 +5,7 @@ MVS 相机解码器
 import sys
 import time
 import threading
+import logging
 import cv2
 import numpy as np
 from typing import Optional
@@ -12,6 +13,9 @@ from ctypes import string_at
 
 from .base import BaseDecoder
 from ..frame import DecodedFrame
+from ..logging_utils import StreamLoggerAdapter
+
+logger = logging.getLogger(__name__)
 
 # 尝试导入 MVS SDK
 try:
@@ -41,9 +45,12 @@ class MVSDecoder(BaseDecoder):
         super().__init__(video_stream)
         self._camera: MvCamera = None
         
+        # 带 stream_id 的logger
+        self.logger = StreamLoggerAdapter(logger, {'stream_id': video_stream.id})
+        
         # 检查 MVS SDK 是否可用
         if not HAS_MVS_SDK:
-            print("MVS SDK 不可用，请安装 MVS 相机驱动")
+            self.logger.error("MVS SDK 不可用，请安装 MVS 相机驱动")
             raise _MVS_IMPORT_ERROR
         
         # 线程安全的 SDK 初始化和实例注册
@@ -64,10 +71,10 @@ class MVSDecoder(BaseDecoder):
         """
         try:
             MvCamera.MV_CC_Initialize()
-            print("MVS SDK 初始化成功")
+            logger.info("MVS SDK 初始化成功")
             cls._sdk_initialized = True
         except Exception as e:
-            print(f"MVS SDK 初始化失败: {e}")
+            logger.error(f"MVS SDK 初始化失败: {e}")
             cls._sdk_initialized = False
             raise e
     
@@ -102,10 +109,10 @@ class MVSDecoder(BaseDecoder):
         try:
             if cls._sdk_initialized:
                 MvCamera.MV_CC_Finalize()
-                print("MVS SDK 清理完成")
+                logger.info("MVS SDK 清理完成")
                 cls._sdk_initialized = False
         except Exception as e:
-            print(f"MVS SDK 清理失败: {e}")
+            logger.error(f"MVS SDK 清理失败: {e}")
             cls._sdk_initialized = False
     
     @classmethod
@@ -137,7 +144,7 @@ class MVSDecoder(BaseDecoder):
             
             ret = MvCamera.MV_CC_EnumDevices(tlayerType, device_list)
             if ret != 0:
-                print(f"枚举设备失败，错误码: {ret:#X}")
+                self.logger.error(f"枚举设备失败，错误码: {ret:#X}")
                 return False
             
             # 查找指定 IP 的设备
@@ -180,7 +187,7 @@ class MVSDecoder(BaseDecoder):
                         break
             
             if device_index is None:
-                print(f"未找到 IP 为 {target_ip} 的 MVS 设备")
+                self.logger.error(f"未找到 IP 为 {target_ip} 的 MVS 设备")
                 return False
             
             # 创建相机实例
@@ -189,13 +196,13 @@ class MVSDecoder(BaseDecoder):
             # 创建句柄
             ret = self._camera.MV_CC_CreateHandle(device_info)
             if ret != 0:
-                print(f"创建设备句柄失败，错误码: {ret:#X}")
+                self.logger.error(f"创建设备句柄失败，错误码: {ret:#X}")
                 return False
             
             # 打开设备
             ret = self._camera.MV_CC_OpenDevice(MV_ACCESS_Exclusive, 0)
             if ret != 0:
-                print(f"打开设备失败，错误码: {ret:#X}")
+                self.logger.error(f"打开设备失败，错误码: {ret:#X}")
                 self._camera.MV_CC_DestroyHandle()
                 return False
             
@@ -205,24 +212,24 @@ class MVSDecoder(BaseDecoder):
                 if packet_size > 0:
                     ret = self._camera.MV_CC_SetIntValue("GevSCPSPacketSize", packet_size)
                     if ret != 0:
-                        print(f"警告：设置包大小失败，错误码: {ret}")
+                        self.logger.warning(f"设置包大小失败，错误码: {ret}")
             
             # 设置触发模式为 off
             ret = self._camera.MV_CC_SetEnumValue("TriggerMode", MV_TRIGGER_MODE_OFF)
             if ret != 0:
-                print(f"设置触发模式为 off 失败，错误码: {ret:#X}")
+                self.logger.error(f"设置触发模式为 off 失败，错误码: {ret:#X}")
                 return False
             
             # 设置采集帧率
             ret = self._camera.MV_CC_SetFloatValue("AcquisitionFrameRate", float(self.fps))
             if ret != 0:
-                print(f"设置采集帧率失败，错误码: {ret:#X}")
+                self.logger.error(f"设置采集帧率失败，错误码: {ret:#X}")
                 return False
             
             # 开始取流
             ret = self._camera.MV_CC_StartGrabbing()
             if ret != 0:
-                print(f"开始取流失败，错误码: {ret:#X}")
+                self.logger.error(f"开始取流失败，错误码: {ret:#X}")
                 self._camera.MV_CC_CloseDevice()
                 self._camera.MV_CC_DestroyHandle()
                 return False
@@ -234,7 +241,7 @@ class MVSDecoder(BaseDecoder):
             # 读取第一帧图像获取尺寸信息
             first_frame = self.read_frame()
             if first_frame is None:
-                print("无法获取第一帧图像")
+                self.logger.error("无法获取第一帧图像")
                 self._camera.MV_CC_StopGrabbing()
                 self._camera.MV_CC_CloseDevice()
                 self._camera.MV_CC_DestroyHandle()
@@ -246,11 +253,11 @@ class MVSDecoder(BaseDecoder):
 
             self._is_opened = True
             self.reset_stats()
-            print(f"成功打开 MVS 相机: {target_ip}")
+            self.logger.info(f"成功打开 MVS 相机: {target_ip}")
             return True
             
         except Exception as e:
-            print(f"打开 MVS 相机失败: {e}")
+            self.logger.error(f"打开 MVS 相机失败: {e}")
             return False
     
     def close(self):
@@ -268,13 +275,13 @@ class MVSDecoder(BaseDecoder):
                 # 销毁句柄
                 self._camera.MV_CC_DestroyHandle()
                 
-                print(f"成功关闭 MVS 相机: {self.video_stream.address}")
+                self.logger.info(f"成功关闭 MVS 相机: {self.video_stream.address}")
             
             self._camera = None
             self._is_opened = False
             
         except Exception as e:
-            print(f"关闭 MVS 相机失败: {e}")
+            self.logger.error(f"关闭 MVS 相机失败: {e}")
         finally:
             # 线程安全的实例管理和 SDK 清理
             with MVSDecoder._class_lock:
@@ -316,11 +323,11 @@ class MVSDecoder(BaseDecoder):
                     # 转换失败，返回 None
                     return None
             else:
-                print(f"获取图像失败，错误码: {ret:#X}")
+                self.logger.error(f"获取图像失败，错误码: {ret:#X}")
                 return None
                 
         except Exception as e:
-            print(f"读取 MVS 相机帧失败: {e}")
+            self.logger.error(f"读取 MVS 相机帧失败: {e}")
             return None
         finally:
             self._camera.MV_CC_FreeImageBuffer(self._stOutFrame)
@@ -357,7 +364,7 @@ class MVSDecoder(BaseDecoder):
             # print(f"图像参数: width={width}, height={height}, format={pixel_format}, len={frame_len}")
             
             if width <= 0 or height <= 0 or frame_len <= 0:
-                print(f"无效的图像参数: width={width}, height={height}, frame_len={frame_len}")
+                self.logger.error(f"无效的图像参数: width={width}, height={height}, frame_len={frame_len}")
                 return None
             
             # 获取原始图像数据
@@ -394,11 +401,11 @@ class MVSDecoder(BaseDecoder):
                 opencv_image = cv2.cvtColor(yuv_image, cv2.COLOR_YUV2BGR_UYVY)
             
             else:
-                print(f"不支持的像素格式: {pixel_format}")
+                self.logger.error(f"不支持的像素格式: {pixel_format}")
             
             # 直接返回 OpenCV 图像
             return opencv_image
             
         except Exception as e:
-            print(f"转换 OpenCV 图像失败: {e}")
+            self.logger.error(f"转换 OpenCV 图像失败: {e}")
             return None

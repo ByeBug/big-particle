@@ -3,12 +3,16 @@ import queue
 import threading
 import os
 import shutil
+import logging
 from datetime import datetime
 from typing import Optional
 
 from .delayed_queue import DelayedQueue
 from .decoder import DecoderFactory
+from .logging_utils import StreamLoggerAdapter
 from django.db import transaction
+
+logger = logging.getLogger(__name__)
 
 
 class VideoStreamProcessor:
@@ -28,6 +32,9 @@ class VideoStreamProcessor:
         self.video_stream = video_stream
         # 视频流不需要设置采集帧率，为构建队列，预设为 30
         self.fps = video_stream.fps or 30
+        
+        # 设置带 StreamID 的日志器
+        self.logger = StreamLoggerAdapter(logger, {'stream_id': video_stream.id})
         
         # 队列设置
         self.infer_queue = queue.Queue(maxsize=self.fps)
@@ -93,7 +100,7 @@ class VideoStreamProcessor:
             if thread and thread.is_alive():
                 thread.join(timeout=5.0)  # 最多等待5秒
                 if thread.is_alive():
-                    print(f"警告: 线程 {thread.name} 未能在5秒内正常结束")
+                    self.logger.warning(f"线程 {thread.name} 未能在5秒内正常结束")
     
     def decode_loop(self):
         """解码线程：读取视频帧并分发到推理和编码队列"""
@@ -103,7 +110,7 @@ class VideoStreamProcessor:
                 self._init_decoder()
                 if not self.decoder_valid:
                     # 创建或打开失败，更新状态并等待 30 秒后重试
-                    print(f"Decoder 创建失败，30秒后重试...")
+                    self.logger.warning("Decoder 创建失败，30秒后重试...")
                     message = 'Decoder 打开失败'
                     if self.video_stream.status != 'abnormal' or self.video_stream.status_message != message:
                         self._update_stream_status('abnormal', message)
@@ -153,10 +160,10 @@ class VideoStreamProcessor:
                 try:
                     self.decoder.close()
                 except Exception as close_error:
-                    print(f"关闭解码器时出错: {close_error}")
+                    self.logger.error(f"关闭解码器时出错: {close_error}")
                 self.decoder = None
                 self.decoder_valid = False
-                print(f"解码异常，30秒后重试: {e}")
+                self.logger.error(f"解码异常，30秒后重试: {e}")
                 self._update_stream_status('abnormal', f'解码异常: {str(e)}')
                 if self._stop_event.wait(timeout=30):  # 等待停止事件，最多30秒
                     break  # 收到停止信号，退出循环
@@ -167,8 +174,8 @@ class VideoStreamProcessor:
                 self.decoder = None
                 self.decoder_valid = False
         except Exception as e:
-            print(f"关闭解码器时出错: {e}")
-        print(f"解码线程退出")
+            self.logger.error(f"关闭解码器时出错: {e}")
+        self.logger.info("解码线程退出")
     
     def _init_decoder(self):
         """初始化 decoder：创建并打开"""
@@ -179,15 +186,15 @@ class VideoStreamProcessor:
             # 尝试打开 decoder
             if self.decoder.open():
                 self.decoder_valid = True
-                print(f"Decoder 初始化成功: {self.video_stream.type} - {self.video_stream.address}")
+                self.logger.info(f"Decoder 初始化成功: {self.video_stream.type} - {self.video_stream.address}")
             else:
-                print(f"Decoder 打开失败: {self.video_stream.type} - {self.video_stream.address}")
+                self.logger.error(f"Decoder 打开失败: {self.video_stream.type} - {self.video_stream.address}")
                 self.decoder.close()
                 self.decoder = None
                 self.decoder_valid = False
                 
         except Exception as e:
-            print(f"Decoder 初始化异常: {e}")
+            self.logger.error(f"Decoder 初始化异常: {e}")
             self.decoder = None
             self.decoder_valid = False
     
@@ -201,7 +208,7 @@ class VideoStreamProcessor:
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"推理线程错误: {e}")
+                self.logger.error(f"推理线程错误: {e}")
     
     def encode_loop(self):
         """编码线程：处理编码队列中的帧（自动延时500ms）"""
@@ -211,18 +218,18 @@ class VideoStreamProcessor:
                 # TODO: 实现实际的编码逻辑
                 self.encode_frame(frame)
             except Exception as e:
-                print(f"编码线程错误: {e}")
+                self.logger.error(f"编码线程错误: {e}")
     
     def process_inference(self, frame):
         """处理推理"""
         # TODO: 实现大颗粒检测推理逻辑
-        print(f"推理处理: {frame}")
+        # print(f"推理处理: {frame}")  # 高频日志，暂时注释
         time.sleep(0.1)  # 模拟推理时间
     
     def encode_frame(self, frame):
         """编码一帧数据"""
         # TODO: 实现编码逻辑，输出编码后的视频流
-        print(f"编码处理: {frame}")
+        # print(f"编码处理: {frame}")  # 高频日志，暂时注释
         time.sleep(0.05)  # 模拟编码时间
     
     def save_loop(self):
@@ -243,7 +250,7 @@ class VideoStreamProcessor:
                     folder_name = f"{now.strftime('%Y%m%d_%H')}{minute:02d}"
                     save_dir = os.path.join(self.SAVE_FRAMES_DIR, f"stream_{self.video_stream.id}", folder_name)
                     os.makedirs(save_dir, exist_ok=True)
-                    print(f"检查保存目录: {save_dir}")
+                    self.logger.info(f"创建保存目录: {save_dir}")
                 
                 # 生成文件名：时间戳
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # 毫秒精度
@@ -252,12 +259,12 @@ class VideoStreamProcessor:
                 
                 # 使用 DecodedFrame 的 save 方法保存
                 if not frame.save(filepath):
-                    print(f"保存帧失败: {filepath}")
+                    self.logger.error(f"保存帧失败: {filepath}")
                 
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"保存线程错误: {e}")
+                self.logger.error(f"保存线程错误: {e}")
     
     def get_actual_fps(self) -> int:
         """获取实时帧率"""
@@ -283,7 +290,7 @@ class VideoStreamProcessor:
                 self.video_stream.status = status
                 self.video_stream.status_message = message
         except Exception as e:
-            print(f"更新视频流状态失败: {e}")
+            self.logger.error(f"更新视频流状态失败: {e}")
     
     def _update_stream_info(self, width: int = None, height: int = None, fps: int = None):
         """更新数据库中的视频流信息（宽高、fps）"""
@@ -312,10 +319,10 @@ class VideoStreamProcessor:
                 
                 if len(update_fields) > 1:  # 有字段需要更新
                     stream.save(update_fields=update_fields)
-                    print(f"更新视频流信息: width={width}, height={height}, fps={fps}")
+                    self.logger.info(f"更新视频流信息: width={width}, height={height}, fps={fps}")
                 
         except Exception as e:
-            print(f"更新视频流信息失败: {e}")
+            self.logger.error(f"更新视频流信息失败: {e}")
     
     def start_save_thread(self):
         """动态启动保存线程"""
@@ -323,12 +330,12 @@ class VideoStreamProcessor:
             return
         
         if self.save_thread and self.save_thread.is_alive():
-            print(f"保存线程已在运行: {self.video_stream.id}")
+            self.logger.info("保存线程已在运行")
             return
             
         self.save_thread = threading.Thread(target=self.save_loop, name=f"save-{self.video_stream.id}")
         self.save_thread.start()
-        print(f"启动保存线程: {self.video_stream.id}")
+        self.logger.info("启动保存线程")
     
     def stop_save_thread(self):
         """动态停止保存线程"""
@@ -337,9 +344,9 @@ class VideoStreamProcessor:
             self._stop_save_thread = True
             self.save_thread.join(timeout=2.0)
             if self.save_thread.is_alive():
-                print(f"警告: 保存线程未能在2秒内正常结束: {self.video_stream.id}")
+                self.logger.warning("保存线程未能在2秒内正常结束")
             else:
-                print(f"停止保存线程: {self.video_stream.id}")
+                self.logger.info("停止保存线程")
             self.save_thread = None
             self._stop_save_thread = False
 
@@ -382,26 +389,26 @@ def cleanup_loop():
             free_space_gb = get_free_space_gb(VideoStreamProcessor.SAVE_FRAMES_DIR)
             
             if free_space_gb < VideoStreamProcessor.SAFE_FREE_SPACE_GB:
-                print(f"磁盘空间不足 {free_space_gb:.1f}GB < {VideoStreamProcessor.SAFE_FREE_SPACE_GB}GB，开始清理...")
+                logger.warning(f"磁盘空间不足 {free_space_gb:.1f}GB < {VideoStreamProcessor.SAFE_FREE_SPACE_GB}GB，开始清理...")
                 
                 # 找到最旧的图片目录并删除
                 oldest_dir = find_oldest_frame_directory()
                 if oldest_dir:
                     try:
                         shutil.rmtree(oldest_dir)
-                        print(f"已删除最旧目录: {oldest_dir}")
+                        logger.info(f"已删除最旧目录: {oldest_dir}")
                     except Exception as e:
-                        print(f"删除目录失败 {oldest_dir}: {e}")
+                        logger.error(f"删除目录失败 {oldest_dir}: {e}")
                 else:
-                    print("未找到可删除的图片目录")
+                    logger.warning("未找到可删除的图片目录")
             else:
-                print(f"磁盘空间充足: {free_space_gb:.1f}GB")
+                logger.info(f"磁盘空间充足: {free_space_gb:.1f}GB")
             
             # 等待30秒后再次检查
             time.sleep(30)
             
         except Exception as e:
-            print(f"清理线程错误: {e}")
+            logger.error(f"清理线程错误: {e}")
             time.sleep(30)
 
 def get_free_space_gb(path: str) -> float:
@@ -411,7 +418,7 @@ def get_free_space_gb(path: str) -> float:
         free_bytes = statvfs.f_frsize * statvfs.f_bavail
         return free_bytes / (1024 ** 3)  # 转换为GB
     except Exception as e:
-        print(f"获取磁盘空间失败: {e}")
+        logger.error(f"获取磁盘空间失败: {e}")
         return float('inf')  # 返回无限大，避免误删
 
 def find_oldest_frame_directory() -> Optional[str]:
@@ -445,7 +452,7 @@ def find_oldest_frame_directory() -> Optional[str]:
                     oldest_dir = time_path
     
     except Exception as e:
-        print(f"查找最旧目录时出错: {e}")
+        logger.error(f"查找最旧目录时出错: {e}")
         return None
     
     return oldest_dir
@@ -455,13 +462,13 @@ def start_cleanup_thread():
     global cleanup_thread, cleanup_running
     
     if cleanup_thread and cleanup_thread.is_alive():
-        print("清理线程已在运行")
+        logger.info("清理线程已在运行")
         return
     
     cleanup_running = True
     cleanup_thread = threading.Thread(target=cleanup_loop, name="frame-cleanup", daemon=True)
     cleanup_thread.start()
-    print("清理线程已启动")
+    logger.info("清理线程已启动")
 
 def stop_cleanup_thread():
     """停止清理线程"""
@@ -471,13 +478,13 @@ def stop_cleanup_thread():
     if cleanup_thread and cleanup_thread.is_alive():
         cleanup_thread.join(timeout=5.0)
         if cleanup_thread.is_alive():
-            print("警告: 清理线程未能在5秒内正常结束")
+            logger.warning("清理线程未能在5秒内正常结束")
         else:
-            print("清理线程已停止")
+            logger.info("清理线程已停止")
 
 def shutdown_all_processors():
     """关闭所有活跃的视频流处理器"""
-    print(f"正在关闭 {len(active_processors)} 个视频流处理器...")
+    logger.info(f"正在关闭 {len(active_processors)} 个视频流处理器...")
     
     # 停止清理线程
     stop_cleanup_thread()
@@ -488,8 +495,8 @@ def shutdown_all_processors():
     for stream_id in processor_ids:
         try:
             remove_processor(stream_id)
-            print(f"已关闭视频流处理器: {stream_id}")
+            logger.info(f"已关闭视频流处理器: {stream_id}")
         except Exception as e:
-            print(f"关闭视频流处理器 {stream_id} 失败: {e}")
+            logger.error(f"关闭视频流处理器 {stream_id} 失败: {e}")
     
-    print("所有视频流处理器已关闭")
+    logger.info("所有视频流处理器已关闭")
