@@ -5,11 +5,13 @@ import os
 import shutil
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Deque
+from collections import deque
 
 from .delayed_queue import DelayedQueue
 from .decoder import DecoderFactory
 from .logging_utils import StreamLoggerAdapter
+from .frame import DecodedFrame
 from django.db import transaction
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,9 @@ class VideoStreamProcessor:
         self.encode_queue = DelayedQueue(delay_seconds=self.ENCODE_DELAY_SEC, maxsize=encode_queue_size)
         # 保存队列，缓冲大小为 fps 的 2 倍
         self.save_queue = queue.Queue(maxsize=self.fps * 2)
+        
+        # 最新帧缓存，使用 deque 实现循环队列，最大长度为 2
+        self.latest_frame_cache: Deque[DecodedFrame] = deque(maxlen=2)
         
         # 线程
         self.decode_thread = None
@@ -133,6 +138,9 @@ class VideoStreamProcessor:
                 if frame is None:
                     time.sleep(0.01)
                     continue
+                
+                # 将帧加入最新帧缓存（循环队列，自动保留最新的2帧）
+                self.latest_frame_cache.append(frame)
                 
                 # 尝试加入推理队列
                 try:
@@ -275,6 +283,12 @@ class VideoStreamProcessor:
     def is_running(self) -> bool:
         """检查处理器是否正在运行"""
         return self.running
+    
+    def get_latest_frame(self) -> Optional[DecodedFrame]:
+        """获取最新的解码帧"""
+        if self.latest_frame_cache:
+            return self.latest_frame_cache[0]
+        return None
     
     def _update_stream_status(self, status: str, message: str = ""):
         """更新数据库中的视频流状态"""

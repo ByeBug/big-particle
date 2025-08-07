@@ -1,6 +1,10 @@
 import logging
+import cv2
 from django.contrib.auth.models import User, Group
-from rest_framework import viewsets
+from django.http import HttpResponse
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from .models import VideoStream
 from .serializers import UserSerializer, GroupSerializer, VideoStreamSerializer
@@ -118,3 +122,47 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
         
         # 执行实际删除
         instance.delete()
+    
+    @action(detail=True, methods=['get'])
+    def latest_frame(self, request, pk=None):
+        """获取视频流的最新帧图像"""
+        try:
+            video_stream = self.get_object()
+            
+            # 获取处理器
+            processor = get_processor(video_stream.id)
+            if not processor:
+                return Response(
+                    {"error": "视频流处理器未运行"}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # 获取最新帧
+            frame = processor.get_latest_frame()
+            if frame is None:
+                return Response(
+                    {"error": "暂无可用帧"}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # 使用opencv将帧编码为JPG
+            success, buffer = cv2.imencode('.jpg', frame.ocv_image)
+            if not success:
+                return Response(
+                    {"error": "图像编码失败"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            # 返回JPG字节流
+            response = HttpResponse(buffer.tobytes(), content_type='image/jpeg')
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            return response
+            
+        except Exception as e:
+            logger.error(f"获取最新帧失败: {e}")
+            return Response(
+                {"error": f"获取最新帧失败: {str(e)}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
