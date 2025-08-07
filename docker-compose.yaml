@@ -27,6 +27,16 @@ services:
     ports:
       - "8181:80"
 
+  zlmediakit:
+    image: zlmediakit/zlmediakit:master
+    container_name: zlmediakit
+    restart: always
+    volumes:
+      - ./zlmediakit/config.ini:/opt/media/bin/config.ini
+      - /data/big-particle-data/zlmediakit/record:/opt/media/bin/www/record   # 点播目录
+    network_mode: host
+    command: ['./MediaServer', '-c', './config.ini']
+
   netdata:
     image: netdata/netdata:v2.5.3
     container_name: netdata
