@@ -320,15 +320,9 @@ class MVSDecoder(BaseDecoder):
                         stream_id=self.video_stream.id
                     )
                 else:
-                    # 转换失败，返回 None
-                    return None
+                    raise Exception(f"转换图像失败")
             else:
-                self.logger.error(f"获取图像失败，错误码: {ret:#X}")
-                return None
-                
-        except Exception as e:
-            self.logger.error(f"读取 MVS 相机帧失败: {e}")
-            return None
+                raise Exception(f"获取图像失败，错误码: {ret:#X}")
         finally:
             self._camera.MV_CC_FreeImageBuffer(self._stOutFrame)
     

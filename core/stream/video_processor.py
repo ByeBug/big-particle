@@ -68,8 +68,10 @@ class VideoStreamProcessor:
     def start(self):
         """启动所有处理线程"""
         if self.running:
+            self.logger.warning("视频流处理器已启动")
             return
         
+        self.logger.info("启动视频流处理器")
         self.running = True
         
         # TODO decode 线程中，decoder 有效则创建推理和编码线程；无效则停止推理和编码线程
@@ -91,6 +93,7 @@ class VideoStreamProcessor:
     
     def stop(self):
         """停止所有处理线程"""
+        self.logger.info("停止视频流处理器")
         self.running = False
         self._stop_event.set()  # 触发停止事件，中断等待
         
@@ -348,28 +351,32 @@ class VideoStreamProcessor:
     def start_save_thread(self):
         """动态启动保存线程"""
         if not self.ENABLE_SAVE or not self.video_stream.save_frames:
+            self.logger.info("未启用保存帧")
             return
         
         if self.save_thread and self.save_thread.is_alive():
             self.logger.info("保存线程已在运行")
             return
             
+        self.logger.info("启动保存线程")
         self.save_thread = threading.Thread(target=self.save_loop, name=f"save-{self.video_stream.id}")
         self.save_thread.start()
-        self.logger.info("启动保存线程")
     
     def stop_save_thread(self):
         """动态停止保存线程"""
         if self.save_thread and self.save_thread.is_alive():
             # 通过设置 _stop_save_thread 标志停止保存线程
+            self.logger.info("停止保存线程")
             self._stop_save_thread = True
             self.save_thread.join(timeout=2.0)
             if self.save_thread.is_alive():
                 self.logger.warning("保存线程未能在2秒内正常结束")
             else:
-                self.logger.info("停止保存线程")
+                self.logger.info("保存线程已停止")
             self.save_thread = None
             self._stop_save_thread = False
+        else:
+            self.logger.info("保存线程未运行")
 
 
 # 全局处理器管理
@@ -387,6 +394,7 @@ def get_processor(video_stream_id: int) -> Optional[VideoStreamProcessor]:
 
 def create_processor(video_stream) -> VideoStreamProcessor:
     """创建并启动视频流处理器"""
+    logger.info(f"创建视频流处理器: {video_stream.id}")
     processor = VideoStreamProcessor(video_stream)
     active_processors[video_stream.id] = processor
     processor.start()
@@ -395,6 +403,7 @@ def create_processor(video_stream) -> VideoStreamProcessor:
 
 def remove_processor(video_stream_id: int):
     """停止并移除视频流处理器"""
+    logger.info(f"移除视频流处理器: {video_stream_id}")
     processor = active_processors.pop(video_stream_id, None)
     if processor:
         processor.stop()

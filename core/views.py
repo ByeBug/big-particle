@@ -55,25 +55,27 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
         
         # 处理不同的更新场景
         if old_enabled and not new_enabled:
+            logger.info(f"禁用视频流: {video_stream.id}")
             # 从启用→禁用：关闭视频流
             if existing_processor:
                 try:
                     remove_processor(video_stream.id)
-                    logger.info(f"禁用视频流: {video_stream.id}")
                 except Exception as e:
                     logger.error(f"禁用视频流失败: {e}")
+            else:
+                logger.info(f"视频流处理器不存在: {video_stream.id}")
             # 更新状态为未启用
             video_stream.status = VideoStream.Status.DISABLED
             video_stream.status_message = ""
             video_stream.save(update_fields=['status', 'status_message'])
         elif not old_enabled and new_enabled:
+            logger.info(f"启用视频流: {video_stream.id}")
             # 从禁用→启用：启动处理器
             try:
                 create_processor(video_stream)
                 video_stream.status = VideoStream.Status.NORMAL
                 video_stream.status_message = ""
                 video_stream.save(update_fields=['status', 'status_message'])
-                logger.info(f"启用视频流: {video_stream.id}")
             except Exception as e:
                 video_stream.status = VideoStream.Status.ABNORMAL
                 video_stream.status_message = f"启动失败: {str(e)}"
@@ -96,13 +98,13 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
             # 处理 save_frames 变化（仅在不需要重启时）
             elif save_frames_changed and existing_processor:
                 try:
+                    logger.info(f"更新保存帧设置: {video_stream.id} -> {save_frames_new}")
                     save_frames_new = serializer.validated_data.get('save_frames', serializer.instance.save_frames)
                     existing_processor.video_stream.save_frames = save_frames_new
                     if save_frames_new:
                         existing_processor.start_save_thread()
                     else:
                         existing_processor.stop_save_thread()
-                    logger.info(f"保存帧设置已更新: {video_stream.id} -> {save_frames_new}")
                 except Exception as e:
                     logger.error(f"更新保存设置失败: {e}")
         
@@ -115,8 +117,8 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         """删除时关闭视频流"""
         try:
+            logger.info(f"删除视频流: {instance.id}")
             remove_processor(instance.id)
-            logger.info(f"删除视频流，已关闭处理器: {instance.id}")
         except Exception as e:
             logger.error(f"删除时关闭视频流失败: {e}")
         
