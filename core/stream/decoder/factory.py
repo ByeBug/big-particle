@@ -2,13 +2,12 @@
 解码器工厂
 """
 
-from typing import Optional
 from ...models import VideoStream
 from .base import BaseDecoder
 from .mvs_decoder import MVSDecoder
 from .video_file_decoder import VideoFileDecoder
 from .image_dir_decoder import ImageDirDecoder
-
+from .rtsp_decoder import RtspDecoder
 
 class DecoderFactory:
     """解码器工厂类
@@ -18,6 +17,7 @@ class DecoderFactory:
     
     # 解码器类型映射
     DECODER_MAPPING = {
+        VideoStream.StreamType.RTSP: RtspDecoder,
         VideoStream.StreamType.MVS: MVSDecoder,
         VideoStream.StreamType.VIDEO_FILE: VideoFileDecoder,
         VideoStream.StreamType.IMAGE_DIR: ImageDirDecoder,

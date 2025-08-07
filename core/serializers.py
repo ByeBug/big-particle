@@ -1,3 +1,4 @@
+import re
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
 from .models import VideoStream
@@ -116,6 +117,31 @@ class VideoStreamSerializer(serializers.HyperlinkedModelSerializer):
                     raise serializers.ValidationError("MVS 类型的 address 必须是有效的 IP 地址")
                 # 自动设置 ip 字段
                 data['ip'] = input_address
+            
+            # RTSP 类型的 address 必须以 rtsp:// 开头
+            elif final_type == 'rtsp':
+                if not input_address.startswith('rtsp://'):
+                    raise serializers.ValidationError("RTSP 类型的 address 必须以 rtsp:// 开头")
+                
+                # 从RTSP URL中提取IP地址，支持带用户名密码的格式
+                # 从最后一个@符号截断，避免用户名密码中的@干扰
+                if '@' in input_address:
+                    # 有@符号，从最后一个@后面开始解析
+                    host_part = input_address.split('@')[-1]
+                else:
+                    # 没有@符号，去掉rtsp://前缀
+                    host_part = input_address[7:]
+                
+                # 提取IP地址（去掉端口和路径）
+                ip_pattern = r'^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
+                match = re.search(ip_pattern, host_part)
+                if match:
+                    ip = match.group(1)
+                    try:
+                        ipaddress.ip_address(ip)
+                        data['ip'] = ip
+                    except ValueError:
+                        pass  # IP格式无效，不设置ip字段
         
         # 修改时不允许更新 type
         if self.instance and 'type' in data:

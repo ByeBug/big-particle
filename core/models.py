@@ -3,7 +3,7 @@ from django.db import models
 
 class VideoStream(models.Model):
     class StreamType(models.TextChoices):
-        # RTSP = 'rtsp', 'RTSP'
+        RTSP = 'rtsp', 'RTSP'
         MVS = 'mvs', 'MVS'
         VIDEO_FILE = 'video_file', 'Video File'
         IMAGE_DIR = 'image_dir', 'Image Dir'
