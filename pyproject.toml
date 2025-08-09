@@ -17,6 +17,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "djangorestframework>=3.16.0",
-    "opencv-python>=4.12.0.88",
+    # paddle preprocess 中使用 imgaug，但 imgaug 不支持 numpy 2.0，因此降低 numpy、opencv 版本
+    "imgaug>=0.4.0",
+    "numpy<2",
+    "opencv-python<=4.6",
     "psycopg[binary]>=3.2.9",
+    "pyyaml>=6.0.2",
+    # paddle 中依赖
+    "setuptools>=80.9.0",
 ]
