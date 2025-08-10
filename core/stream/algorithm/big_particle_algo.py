@@ -95,7 +95,10 @@ class BigParticleAlgo:
             
             self.logger.debug(f"算法处理完成: frame={frame.frame_number}, status={algo_status}")
 
-            # TODO 该算法推理完成，有没有 countDown 机制，减到零后能唤醒推理线程
-            
         except Exception as e:
             self.logger.error(f"算法处理失败: frame={frame.frame_number}, error={e}")
+            # 设置失败状态
+            frame.algo_status[self.name] = InferStatus.FAILED
+        finally:
+            # 无论成功还是失败，都要 count down
+            frame.algo_latch.count_down()

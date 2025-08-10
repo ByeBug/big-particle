@@ -3,11 +3,12 @@
 """
 import logging
 import threading
-from typing import Any
+from typing import Any, Optional
 import cv2
 import numpy as np
 
 from .algorithm.status import InferStatus
+from .count_down_latch import CountDownLatch
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,9 @@ class DecodedFrame:
         self.model_events: dict[str, threading.Event] = {}
         # 模型结果字典 {model_name, Any}
         self.model_results: dict[str, Any] = {}
+        
+        # CountDownLatch: 等待所有算法完成
+        self.algo_latch: Optional[CountDownLatch] = None
     
     @property
     def shape(self) -> tuple:

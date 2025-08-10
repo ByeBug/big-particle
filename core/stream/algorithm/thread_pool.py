@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 # 全局线程池，供所有算法共享
 _global_thread_pool = ThreadPoolExecutor(
     max_workers=8,
-    thread_name_prefix="algorithm-worker",
+    thread_name_prefix="algo-worker",
 )
 
 

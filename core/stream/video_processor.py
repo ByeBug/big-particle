@@ -12,6 +12,7 @@ from .delayed_queue import DelayedQueue
 from .decoder import DecoderFactory
 from .logging_utils import StreamLoggerAdapter
 from .frame import DecodedFrame
+from .count_down_latch import CountDownLatch
 from .algorithm.status import InferStatus
 from .algorithm.big_particle_algo import BigParticleAlgo
 from django.db import transaction
@@ -174,7 +175,9 @@ class VideoStreamProcessor:
                 try:
                     if self.ENABLE_INFER:
                         self.infer_queue.put_nowait(frame)
+                        self._submit_to_algorithms(frame)
                 except queue.Full:
+                    # TODO 添加推理队列满 metric
                     pass  # 推理队列满，丢弃帧
                 
                 # 尝试加入编码队列
@@ -182,6 +185,7 @@ class VideoStreamProcessor:
                     if self.ENABLE_ENCODE:
                         self.encode_queue.put_nowait(frame)
                 except queue.Full:
+                    # TODO 添加编码队列满 metric
                     pass  # 编码队列满，丢弃帧
                 
                 # 尝试加入保存队列
@@ -189,6 +193,7 @@ class VideoStreamProcessor:
                     if self.ENABLE_SAVE and self.video_stream.save_frames:
                         self.save_queue.put_nowait(frame)
                 except queue.Full:
+                    # TODO 添加保存队列满 metric
                     pass  # 保存队列满，丢弃帧
                 
             except Exception as e:
@@ -252,38 +257,55 @@ class VideoStreamProcessor:
             self.decoder = None
             self.decoder_valid = False
     
+    def _submit_to_algorithms(self, frame: DecodedFrame):   
+        """根据算法的推理间隔设置帧的算法状态，并提交帧到算法"""
+        frame_timestamp = frame.timestamp  # 毫秒时间戳
+        
+        # 初始化 CountDownLatch
+        frame.algo_latch = CountDownLatch(len(self.algorithms))
+        
+        for algo_instance in self.algorithms:
+            try:
+                algo_name = algo_instance.name
+                next_infer_time = self.next_infer_times[algo_name]
+                
+                # 比较帧时间戳和下次推理时间，有 5ms 的 offset，避免解码提前
+                if frame_timestamp >= next_infer_time - 5 :
+                    # 需要推理
+                    frame.algo_status[algo_name] = InferStatus.NEED_INFER
+                    infer_interval = self.ALGORITHM_CONFIGS[algo_name]['infer_interval_ms']
+                    if next_infer_time == -1:
+                        # 第一次推理，以帧时间戳为基础
+                        self.next_infer_times[algo_name] = frame_timestamp + infer_interval
+                    else:
+                        # 以上次的下次推理时间为基础
+                        self.next_infer_times[algo_name] = next_infer_time + infer_interval
+                    
+                    self.logger.debug(f"算法 {algo_name} 需要推理, 下次推理时间: {self.next_infer_times[algo_name]}")
+                else:
+                    # 需要渲染
+                    frame.algo_status[algo_name] = InferStatus.NEED_RENDER
+                    self.logger.debug(f"算法 {algo_name} 需要渲染")
+                
+                # 提交帧到算法
+                algo_instance.submit(frame)
+            except Exception as e:
+                self.logger.error(f"提交帧到算法 {algo_name} 失败: {e}")
+                # 提交到某个算法失败也要 count down，避免死锁
+                frame.algo_latch.count_down()
+
     def infer_loop(self):
         """推理线程：处理推理队列中的帧"""
         while self.running:
             try:
-                # TODO 从队列中移除了帧，推理队列不会满，推理压力给了算法中的全局线程池，需要优化
                 frame = self.infer_queue.get(timeout=1.0)
-                frame_timestamp = frame.timestamp  # 毫秒时间戳
                 
-                for algo_instance in self.algorithms:
-                    algo_name = algo_instance.name
-                    next_infer_time = self.next_infer_times[algo_name]
-                    
-                    # 比较帧时间戳和下次推理时间，有 5ms 的 offset，避免解码提前
-                    if frame_timestamp >= next_infer_time - 5 :
-                        # 需要推理
-                        frame.algo_status[algo_name] = InferStatus.NEED_INFER
-                        infer_interval = self.ALGORITHM_CONFIGS[algo_name]['infer_interval_ms']
-                        if next_infer_time == -1:
-                            # 第一次推理，以帧时间戳为基础
-                            self.next_infer_times[algo_name] = frame_timestamp + infer_interval
-                        else:
-                            # 以上次的下次推理时间为基础
-                            self.next_infer_times[algo_name] = next_infer_time + infer_interval
-                        
-                        self.logger.debug(f"算法 {algo_name} 需要推理, 下次推理时间: {self.next_infer_times[algo_name]}")
-                    else:
-                        # 需要渲染
-                        frame.algo_status[algo_name] = InferStatus.NEED_RENDER
-                        self.logger.debug(f"算法 {algo_name} 需要渲染")
-                    
-                    # 提交帧到算法
-                    algo_instance.submit(frame)
+                # 等待所有算法完成处理
+                if not frame.algo_latch.wait(timeout=1.0):
+                    # TODO 添加推理超时 metric
+                    self.logger.warning(f"帧处理超时: frame={frame.frame_number}, 剩余算法数={frame.algo_latch.get_count()}")
+                else:
+                    self.logger.debug(f"帧处理完成: frame={frame.frame_number}")
                 
             except queue.Empty:
                 continue
