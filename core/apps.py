@@ -4,6 +4,10 @@ import os
 import logging
 from django.apps import AppConfig
 
+from .stream.video_processor import shutdown_all_processors
+from .stream.algorithm.thread_pool import shutdown_global_thread_pool
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,12 +40,12 @@ class CoreConfig(AppConfig):
         """注册信号处理器"""
         def shutdown_handler(signum, frame):
             """处理关闭信号"""
-            logger.info(f"接收到信号 {signum}，正在关闭所有视频流...")
+            logger.info(f"接收到信号 {signum}，正在关闭...")
             try:
-                from .stream.video_processor import shutdown_all_processors
                 shutdown_all_processors()
+                shutdown_global_thread_pool()
             except Exception as e:
-                logger.error(f"关闭视频流时出错: {e}")
+                logger.error(f"关闭时出错: {e}")
             
             # 调用默认的退出处理
             sys.exit(0)

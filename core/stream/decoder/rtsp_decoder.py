@@ -116,7 +116,7 @@ class RtspDecoder(BaseDecoder):
                 width=frame.shape[1],
                 height=frame.shape[0],
                 frame_number=self._frame_count,
-                timestamp=time.time(),  # 使用解码时的当前时间
+                timestamp=int(time.time() * 1000),  # 使用解码时的当前时间
                 stream_id=self.video_stream.id
             )
         else:

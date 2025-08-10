@@ -316,7 +316,7 @@ class MVSDecoder(BaseDecoder):
                         width=self._stOutFrame.stFrameInfo.nWidth,
                         height=self._stOutFrame.stFrameInfo.nHeight,
                         frame_number=self._stOutFrame.stFrameInfo.nFrameNum,
-                        timestamp=time.time(),
+                        timestamp=int(time.time() * 1000),
                         stream_id=self.video_stream.id
                     )
                 else:

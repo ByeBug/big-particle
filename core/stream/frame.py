@@ -2,8 +2,11 @@
 解码帧数据类
 """
 import logging
+from typing import Any
 import cv2
 import numpy as np
+
+from .algorithm.status import InferStatus
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +23,7 @@ class DecodedFrame:
         width: int,
         height: int,
         frame_number: int,
-        timestamp: float,
+        timestamp: int,
         stream_id: int,
     ):
         """
@@ -31,7 +34,7 @@ class DecodedFrame:
             width: 图像宽度
             height: 图像高度
             frame_number: 帧号
-            timestamp: 时间戳（秒为单位）
+            timestamp: 毫秒时间戳
             stream_id: 视频流ID（对应 VideoStream 模型的 ID）
         """
         self.ocv_image = ocv_image
@@ -50,6 +53,11 @@ class DecodedFrame:
             self.channels = ocv_image.shape[2]
         else:
             raise ValueError(f"不支持的图像维度: {ocv_image.shape}")
+        
+        # 算法状态字典 {algo_name: InferStatus}
+        self.algo_status: dict[str, InferStatus] = {}
+        # 算法结果字典 {algo_name: Any}
+        self.algo_results: dict[str, Any] = {}
     
     @property
     def shape(self) -> tuple:

@@ -145,7 +145,7 @@ class ImageDirDecoder(BaseDecoder):
                 width=image.shape[1],
                 height=image.shape[0],
                 frame_number=current_frame_number,
-                timestamp=time.time(),
+                timestamp=int(time.time() * 1000),
                 stream_id=self.video_stream.id
             )
                 

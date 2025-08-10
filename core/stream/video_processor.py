@@ -12,6 +12,8 @@ from .delayed_queue import DelayedQueue
 from .decoder import DecoderFactory
 from .logging_utils import StreamLoggerAdapter
 from .frame import DecodedFrame
+from .algorithm.status import InferStatus
+from .algorithm.big_particle_algo import BigParticleAlgo
 from django.db import transaction
 
 logger = logging.getLogger(__name__)
@@ -23,12 +25,20 @@ class VideoStreamProcessor:
     ENCODE_DELAY_SEC = 0.5  # 编码延迟时间（秒）
 
     # 控制是否启用推理和编码，暂时关闭
-    ENABLE_INFER = False
+    ENABLE_INFER = True
     ENABLE_ENCODE = False
     ENABLE_SAVE = True  # 启用帧保存功能
 
     SAVE_FRAMES_DIR = "/data/big-particle-data/storage/saved_frames"
     SAFE_FREE_SPACE_GB = 100  # 安全剩余空间阈值（GB）
+    
+    # 算法配置
+    ALGORITHM_CONFIGS = {
+        'big_particle': {
+            'infer_interval_ms': 100,  # 推理间隔100ms
+            'enabled': True
+        }
+    }
     
     def __init__(self, video_stream):
         self.video_stream = video_stream
@@ -39,7 +49,7 @@ class VideoStreamProcessor:
         self.logger = StreamLoggerAdapter(logger, {'stream_id': video_stream.id})
         
         # 队列设置
-        self.infer_queue = queue.Queue(maxsize=self.fps)
+        self.infer_queue: queue.Queue[DecodedFrame] = queue.Queue(maxsize=self.fps)
         # 编码队列大小 = fps * (延迟时间 + 缓冲时间)
         encode_queue_size = int(self.fps * (self.ENCODE_DELAY_SEC + 1))
         self.encode_queue = DelayedQueue(delay_seconds=self.ENCODE_DELAY_SEC, maxsize=encode_queue_size)
@@ -64,6 +74,11 @@ class VideoStreamProcessor:
         self.decoder = None
         self.decoder_valid = False
         self._last_fps_log_time = time.time()  # 上次打印帧率的时间
+        
+        # 算法实例和推理时间控制
+        self.algorithms = []  # 算法实例列表
+        self.next_infer_times = {}  # 每种算法的下次推理时间 {algorithm_type: next_time_ms}
+        self._init_algorithms()
     
     def start(self):
         """启动所有处理线程"""
@@ -195,6 +210,19 @@ class VideoStreamProcessor:
             self.logger.error(f"关闭解码器时出错: {e}")
         self.logger.info("解码线程退出")
     
+    def _init_algorithms(self):
+        """初始化算法实例"""
+        for algo_name, algo_config in self.ALGORITHM_CONFIGS.items():
+            if algo_config.get('enabled', False):
+                self.logger.info(f"初始化算法: {algo_name}")
+                if algo_name == 'big_particle':
+                    algo_instance = BigParticleAlgo(self.video_stream.id, algo_name, algo_config)
+                    self.algorithms.append(algo_instance)
+                    # 初始化下次推理时间为 -1
+                    self.next_infer_times[algo_name] = -1
+        
+        self.logger.info(f"共初始化 {len(self.algorithms)} 个算法")
+    
     def _init_decoder(self):
         """初始化 decoder：创建并打开"""
         try:
@@ -221,12 +249,39 @@ class VideoStreamProcessor:
         while self.running:
             try:
                 frame = self.infer_queue.get(timeout=1.0)
-                # TODO: 实现实际的推理逻辑
-                self.process_inference(frame)
+                frame_timestamp = frame.timestamp  # 毫秒时间戳
+                
+                for algo_instance in self.algorithms:
+                    algo_name = algo_instance.name
+                    next_infer_time = self.next_infer_times[algo_name]
+                    
+                    # 比较帧时间戳和下次推理时间，有 5ms 的 offset，避免解码提前
+                    if frame_timestamp >= next_infer_time - 5 :
+                        # 需要推理
+                        frame.algo_status[algo_name] = InferStatus.NEED_INFER
+                        infer_interval = self.ALGORITHM_CONFIGS[algo_name]['infer_interval_ms']
+                        if next_infer_time == -1:
+                            # 第一次推理，以帧时间戳为基础
+                            self.next_infer_times[algo_name] = frame_timestamp + infer_interval
+                        else:
+                            # 以上次的下次推理时间为基础
+                            self.next_infer_times[algo_name] = next_infer_time + infer_interval
+                        
+                        self.logger.debug(f"算法 {algo_name} 需要推理, 下次推理时间: {self.next_infer_times[algo_name]}")
+                    else:
+                        # 需要渲染
+                        frame.algo_status[algo_name] = InferStatus.NEED_RENDER
+                        self.logger.debug(f"算法 {algo_name} 需要渲染")
+                    
+                    # 提交帧到算法
+                    algo_instance.submit(frame)
+                
             except queue.Empty:
                 continue
             except Exception as e:
                 self.logger.error(f"推理线程错误: {e}")
+        
+        self.logger.info("推理线程退出")
     
     def encode_loop(self):
         """编码线程：处理编码队列中的帧（自动延时500ms）"""
@@ -237,12 +292,8 @@ class VideoStreamProcessor:
                 self.encode_frame(frame)
             except Exception as e:
                 self.logger.error(f"编码线程错误: {e}")
-    
-    def process_inference(self, frame):
-        """处理推理"""
-        # TODO: 实现大颗粒检测推理逻辑
-        # print(f"推理处理: {frame}")  # 高频日志，暂时注释
-        time.sleep(0.1)  # 模拟推理时间
+        
+        self.logger.info("编码线程退出")
     
     def encode_frame(self, frame):
         """编码一帧数据"""
