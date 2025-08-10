@@ -8,6 +8,20 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "anyio"
+version = "4.10.0"
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+dependencies = [
+    { name = "idna" },
+    { name = "sniffio" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+]
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/f1/b4/636b3b65173d3ce9a38ef5f0522789614e590dab6a8d505340a4efe4c567/anyio-4.10.0.tar.gz", hash = "sha256:3f3fae35c96039744587aa5b8371e7e8e603c0702999535961dd336026973ba6", size = 213252, upload-time = "2025-08-04T08:54:26.451Z" }
+wheels = [
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/6f/12/e5e0282d673bb9746bacfb6e2dba8719989d3660cdb2ea79aee9a9651afb/anyio-4.10.0-py3-none-any.whl", hash = "sha256:60e474ac86736bbfd6f210f7a61218939c318f43f9972497381f1c5e930ed3d1", size = 107213, upload-time = "2025-08-04T08:54:24.882Z" },
+]
+
+[[package]]
 name = "asgiref"
 version = "3.9.1"
 source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
@@ -25,6 +39,7 @@ dependencies = [
     { name = "imgaug" },
     { name = "numpy" },
     { name = "opencv-python" },
+    { name = "paddlepaddle-gpu" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pyyaml" },
     { name = "setuptools" },
@@ -36,9 +51,19 @@ requires-dist = [
     { name = "imgaug", specifier = ">=0.4.0" },
     { name = "numpy", specifier = "<2" },
     { name = "opencv-python", specifier = "<=4.6" },
+    { name = "paddlepaddle-gpu", specifier = "==3.1.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.9" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "setuptools", specifier = ">=80.9.0" },
+]
+
+[[package]]
+name = "certifi"
+version = "2025.8.3"
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/dc/67/960ebe6bf230a96cda2e0abcf73af550ec4f090005363542f0765df162e0/certifi-2025.8.3.tar.gz", hash = "sha256:e564105f78ded564e3ae7c923924435e1daa7463faeab5bb932bc53ffae63407", size = 162386, upload-time = "2025-08-03T03:07:47.08Z" }
+wheels = [
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/e5/48/1549795ba7742c948d2ad169c1c8cdbae65bc450d6cd753d124b17c8cd32/certifi-2025.8.3-py3-none-any.whl", hash = "sha256:f6c12493cfb1b06ba2ff328595af9350c65d6644968e5d3a2ffd78699af217a5", size = 161216, upload-time = "2025-08-03T03:07:45.777Z" },
 ]
 
 [[package]]
@@ -110,10 +135,17 @@ wheels = [
 [[package]]
 name = "cycler"
 version = "0.12.1"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/a9/95/a3dbbb5028f35eafb79008e7522a75244477d2838f38cbb722248dabc2a8/cycler-0.12.1.tar.gz", hash = "sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c", size = 7615, upload-time = "2023-10-07T05:32:18.335Z" }
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30", size = 8321, upload-time = "2023-10-07T05:32:16.783Z" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/cycler/cycler-0.12.1-py3-none-any.whl" },
+]
+
+[[package]]
+name = "decorator"
+version = "5.2.1"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/decorator/decorator-5.2.1-py3-none-any.whl" },
 ]
 
 [[package]]
@@ -168,16 +200,57 @@ wheels = [
 ]
 
 [[package]]
+name = "h11"
+version = "0.16.0"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/h11/h11-0.16.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "httpcore"
+version = "1.0.9"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+dependencies = [
+    { name = "certifi" },
+    { name = "h11" },
+]
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/httpcore/httpcore-1.0.9-py3-none-any.whl" },
+]
+
+[[package]]
+name = "httpx"
+version = "0.28.1"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+dependencies = [
+    { name = "anyio" },
+    { name = "certifi" },
+    { name = "httpcore" },
+    { name = "idna" },
+]
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/httpx/httpx-0.28.1-py3-none-any.whl" },
+]
+
+[[package]]
+name = "idna"
+version = "3.10"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/idna/idna-3.10-py3-none-any.whl" },
+]
+
+[[package]]
 name = "imageio"
 version = "2.37.0"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
 dependencies = [
     { name = "numpy" },
     { name = "pillow" },
 ]
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/0c/47/57e897fb7094afb2d26e8b2e4af9a45c7cf1a405acdeeca001fdf2c98501/imageio-2.37.0.tar.gz", hash = "sha256:71b57b3669666272c818497aebba2b4c5f20d5b37c81720e5e1a56d59c492996", size = 389963, upload-time = "2025-01-20T02:42:37.089Z" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/cb/bd/b394387b598ed84d8d0fa90611a90bee0adc2021820ad5729f7ced74a8e2/imageio-2.37.0-py3-none-any.whl", hash = "sha256:11efa15b87bc7871b61590326b2d635439acc321cf7f8ce996f812543ce10eed", size = 315796, upload-time = "2025-01-20T02:42:34.931Z" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/imageio/imageio-2.37.0-py3-none-any.whl" },
 ]
 
 [[package]]
@@ -202,53 +275,46 @@ wheels = [
 
 [[package]]
 name = "kiwisolver"
-version = "1.4.8"
+version = "1.4.6"
 source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/82/59/7c91426a8ac292e1cdd53a63b6d9439abd573c875c3f92c146767dd33faf/kiwisolver-1.4.8.tar.gz", hash = "sha256:23d5f023bdc8c7e54eb65f03ca5d5bb25b601eac4d7f1a042888a1f45237987e", size = 97538, upload-time = "2024-12-24T18:30:51.519Z" }
+resolution-markers = [
+    "platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')",
+]
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/52/bd/e54734b47fa63b52e34bad5b60e6842628b9a47c14254c5557f2a4b37b2e/kiwisolver-1.4.6.tar.gz", hash = "sha256:3cda29d601445e6aa11f80d90a9b8c2ae501650c55d7ad29829bd44499c9e7e0", size = 97171, upload-time = "2024-09-03T16:37:59.509Z" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/fc/aa/cea685c4ab647f349c3bc92d2daf7ae34c8e8cf405a6dcd3a497f58a2ac3/kiwisolver-1.4.8-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:d6af5e8815fd02997cb6ad9bbed0ee1e60014438ee1a5c2444c96f87b8843502", size = 124152, upload-time = "2024-12-24T18:29:16.85Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/c5/0b/8db6d2e2452d60d5ebc4ce4b204feeb16176a851fd42462f66ade6808084/kiwisolver-1.4.8-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:bade438f86e21d91e0cf5dd7c0ed00cda0f77c8c1616bd83f9fc157fa6760d31", size = 66555, upload-time = "2024-12-24T18:29:19.146Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/60/26/d6a0db6785dd35d3ba5bf2b2df0aedc5af089962c6eb2cbf67a15b81369e/kiwisolver-1.4.8-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:b83dc6769ddbc57613280118fb4ce3cd08899cc3369f7d0e0fab518a7cf37fdb", size = 65067, upload-time = "2024-12-24T18:29:20.096Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/c9/ed/1d97f7e3561e09757a196231edccc1bcf59d55ddccefa2afc9c615abd8e0/kiwisolver-1.4.8-cp312-cp312-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:111793b232842991be367ed828076b03d96202c19221b5ebab421ce8bcad016f", size = 1378443, upload-time = "2024-12-24T18:29:22.843Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/29/61/39d30b99954e6b46f760e6289c12fede2ab96a254c443639052d1b573fbc/kiwisolver-1.4.8-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:257af1622860e51b1a9d0ce387bf5c2c4f36a90594cb9514f55b074bcc787cfc", size = 1472728, upload-time = "2024-12-24T18:29:24.463Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/0c/3e/804163b932f7603ef256e4a715e5843a9600802bb23a68b4e08c8c0ff61d/kiwisolver-1.4.8-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:69b5637c3f316cab1ec1c9a12b8c5f4750a4c4b71af9157645bf32830e39c03a", size = 1478388, upload-time = "2024-12-24T18:29:25.776Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/8a/9e/60eaa75169a154700be74f875a4d9961b11ba048bef315fbe89cb6999056/kiwisolver-1.4.8-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:782bb86f245ec18009890e7cb8d13a5ef54dcf2ebe18ed65f795e635a96a1c6a", size = 1413849, upload-time = "2024-12-24T18:29:27.202Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/bc/b3/9458adb9472e61a998c8c4d95cfdfec91c73c53a375b30b1428310f923e4/kiwisolver-1.4.8-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cc978a80a0db3a66d25767b03688f1147a69e6237175c0f4ffffaaedf744055a", size = 1475533, upload-time = "2024-12-24T18:29:28.638Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/e4/7a/0a42d9571e35798de80aef4bb43a9b672aa7f8e58643d7bd1950398ffb0a/kiwisolver-1.4.8-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:36dbbfd34838500a31f52c9786990d00150860e46cd5041386f217101350f0d3", size = 2268898, upload-time = "2024-12-24T18:29:30.368Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/d9/07/1255dc8d80271400126ed8db35a1795b1a2c098ac3a72645075d06fe5c5d/kiwisolver-1.4.8-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:eaa973f1e05131de5ff3569bbba7f5fd07ea0595d3870ed4a526d486fe57fa1b", size = 2425605, upload-time = "2024-12-24T18:29:33.151Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/84/df/5a3b4cf13780ef6f6942df67b138b03b7e79e9f1f08f57c49957d5867f6e/kiwisolver-1.4.8-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:a66f60f8d0c87ab7f59b6fb80e642ebb29fec354a4dfad687ca4092ae69d04f4", size = 2375801, upload-time = "2024-12-24T18:29:34.584Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/8f/10/2348d068e8b0f635c8c86892788dac7a6b5c0cb12356620ab575775aad89/kiwisolver-1.4.8-cp312-cp312-musllinux_1_2_s390x.whl", hash = "sha256:858416b7fb777a53f0c59ca08190ce24e9abbd3cffa18886a5781b8e3e26f65d", size = 2520077, upload-time = "2024-12-24T18:29:36.138Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/32/d8/014b89fee5d4dce157d814303b0fce4d31385a2af4c41fed194b173b81ac/kiwisolver-1.4.8-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:085940635c62697391baafaaeabdf3dd7a6c3643577dde337f4d66eba021b2b8", size = 2338410, upload-time = "2024-12-24T18:29:39.991Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/bd/72/dfff0cc97f2a0776e1c9eb5bef1ddfd45f46246c6533b0191887a427bca5/kiwisolver-1.4.8-cp312-cp312-win_amd64.whl", hash = "sha256:01c3d31902c7db5fb6182832713d3b4122ad9317c2c5877d0539227d96bb2e50", size = 71853, upload-time = "2024-12-24T18:29:42.006Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/dc/85/220d13d914485c0948a00f0b9eb419efaf6da81b7d72e88ce2391f7aed8d/kiwisolver-1.4.8-cp312-cp312-win_arm64.whl", hash = "sha256:a3c44cb68861de93f0c4a8175fbaa691f0aa22550c331fefef02b618a9dcb476", size = 65424, upload-time = "2024-12-24T18:29:44.38Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/79/b3/e62464a652f4f8cd9006e13d07abad844a47df1e6537f73ddfbf1bc997ec/kiwisolver-1.4.8-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:1c8ceb754339793c24aee1c9fb2485b5b1f5bb1c2c214ff13368431e51fc9a09", size = 124156, upload-time = "2024-12-24T18:29:45.368Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/8d/2d/f13d06998b546a2ad4f48607a146e045bbe48030774de29f90bdc573df15/kiwisolver-1.4.8-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:54a62808ac74b5e55a04a408cda6156f986cefbcf0ada13572696b507cc92fa1", size = 66555, upload-time = "2024-12-24T18:29:46.37Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/59/e3/b8bd14b0a54998a9fd1e8da591c60998dc003618cb19a3f94cb233ec1511/kiwisolver-1.4.8-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:68269e60ee4929893aad82666821aaacbd455284124817af45c11e50a4b42e3c", size = 65071, upload-time = "2024-12-24T18:29:47.333Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/f0/1c/6c86f6d85ffe4d0ce04228d976f00674f1df5dc893bf2dd4f1928748f187/kiwisolver-1.4.8-cp313-cp313-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:34d142fba9c464bc3bbfeff15c96eab0e7310343d6aefb62a79d51421fcc5f1b", size = 1378053, upload-time = "2024-12-24T18:29:49.636Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/4e/b9/1c6e9f6dcb103ac5cf87cb695845f5fa71379021500153566d8a8a9fc291/kiwisolver-1.4.8-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3ddc373e0eef45b59197de815b1b28ef89ae3955e7722cc9710fb91cd77b7f47", size = 1472278, upload-time = "2024-12-24T18:29:51.164Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/ee/81/aca1eb176de671f8bda479b11acdc42c132b61a2ac861c883907dde6debb/kiwisolver-1.4.8-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:77e6f57a20b9bd4e1e2cedda4d0b986ebd0216236f0106e55c28aea3d3d69b16", size = 1478139, upload-time = "2024-12-24T18:29:52.594Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/49/f4/e081522473671c97b2687d380e9e4c26f748a86363ce5af48b4a28e48d06/kiwisolver-1.4.8-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:08e77738ed7538f036cd1170cbed942ef749137b1311fa2bbe2a7fda2f6bf3cc", size = 1413517, upload-time = "2024-12-24T18:29:53.941Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/8f/e9/6a7d025d8da8c4931522922cd706105aa32b3291d1add8c5427cdcd66e63/kiwisolver-1.4.8-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a5ce1e481a74b44dd5e92ff03ea0cb371ae7a0268318e202be06c8f04f4f1246", size = 1474952, upload-time = "2024-12-24T18:29:56.523Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/82/13/13fa685ae167bee5d94b415991c4fc7bb0a1b6ebea6e753a87044b209678/kiwisolver-1.4.8-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:fc2ace710ba7c1dfd1a3b42530b62b9ceed115f19a1656adefce7b1782a37794", size = 2269132, upload-time = "2024-12-24T18:29:57.989Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/ef/92/bb7c9395489b99a6cb41d502d3686bac692586db2045adc19e45ee64ed23/kiwisolver-1.4.8-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:3452046c37c7692bd52b0e752b87954ef86ee2224e624ef7ce6cb21e8c41cc1b", size = 2425997, upload-time = "2024-12-24T18:29:59.393Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/ed/12/87f0e9271e2b63d35d0d8524954145837dd1a6c15b62a2d8c1ebe0f182b4/kiwisolver-1.4.8-cp313-cp313-musllinux_1_2_ppc64le.whl", hash = "sha256:7e9a60b50fe8b2ec6f448fe8d81b07e40141bfced7f896309df271a0b92f80f3", size = 2376060, upload-time = "2024-12-24T18:30:01.338Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/02/6e/c8af39288edbce8bf0fa35dee427b082758a4b71e9c91ef18fa667782138/kiwisolver-1.4.8-cp313-cp313-musllinux_1_2_s390x.whl", hash = "sha256:918139571133f366e8362fa4a297aeba86c7816b7ecf0bc79168080e2bd79957", size = 2520471, upload-time = "2024-12-24T18:30:04.574Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/13/78/df381bc7b26e535c91469f77f16adcd073beb3e2dd25042efd064af82323/kiwisolver-1.4.8-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:e063ef9f89885a1d68dd8b2e18f5ead48653176d10a0e324e3b0030e3a69adeb", size = 2338793, upload-time = "2024-12-24T18:30:06.25Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/d0/dc/c1abe38c37c071d0fc71c9a474fd0b9ede05d42f5a458d584619cfd2371a/kiwisolver-1.4.8-cp313-cp313-win_amd64.whl", hash = "sha256:a17b7c4f5b2c51bb68ed379defd608a03954a1845dfed7cc0117f1cc8a9b7fd2", size = 71855, upload-time = "2024-12-24T18:30:07.535Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/a0/b6/21529d595b126ac298fdd90b705d87d4c5693de60023e0efcb4f387ed99e/kiwisolver-1.4.8-cp313-cp313-win_arm64.whl", hash = "sha256:3cd3bc628b25f74aedc6d374d5babf0166a92ff1317f46267f12d2ed54bc1d30", size = 65430, upload-time = "2024-12-24T18:30:08.504Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/34/bd/b89380b7298e3af9b39f49334e3e2a4af0e04819789f04b43d560516c0c8/kiwisolver-1.4.8-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:370fd2df41660ed4e26b8c9d6bbcad668fbe2560462cba151a721d49e5b6628c", size = 126294, upload-time = "2024-12-24T18:30:09.508Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/83/41/5857dc72e5e4148eaac5aa76e0703e594e4465f8ab7ec0fc60e3a9bb8fea/kiwisolver-1.4.8-cp313-cp313t-macosx_10_13_x86_64.whl", hash = "sha256:84a2f830d42707de1d191b9490ac186bf7997a9495d4e9072210a1296345f7dc", size = 67736, upload-time = "2024-12-24T18:30:11.039Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/e1/d1/be059b8db56ac270489fb0b3297fd1e53d195ba76e9bbb30e5401fa6b759/kiwisolver-1.4.8-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:7a3ad337add5148cf51ce0b55642dc551c0b9d6248458a757f98796ca7348712", size = 66194, upload-time = "2024-12-24T18:30:14.886Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/e1/83/4b73975f149819eb7dcf9299ed467eba068ecb16439a98990dcb12e63fdd/kiwisolver-1.4.8-cp313-cp313t-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:7506488470f41169b86d8c9aeff587293f530a23a23a49d6bc64dab66bedc71e", size = 1465942, upload-time = "2024-12-24T18:30:18.927Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/c7/2c/30a5cdde5102958e602c07466bce058b9d7cb48734aa7a4327261ac8e002/kiwisolver-1.4.8-cp313-cp313t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2f0121b07b356a22fb0414cec4666bbe36fd6d0d759db3d37228f496ed67c880", size = 1595341, upload-time = "2024-12-24T18:30:22.102Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/ff/9b/1e71db1c000385aa069704f5990574b8244cce854ecd83119c19e83c9586/kiwisolver-1.4.8-cp313-cp313t-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:d6d6bd87df62c27d4185de7c511c6248040afae67028a8a22012b010bc7ad062", size = 1598455, upload-time = "2024-12-24T18:30:24.947Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/85/92/c8fec52ddf06231b31cbb779af77e99b8253cd96bd135250b9498144c78b/kiwisolver-1.4.8-cp313-cp313t-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:291331973c64bb9cce50bbe871fb2e675c4331dab4f31abe89f175ad7679a4d7", size = 1522138, upload-time = "2024-12-24T18:30:26.286Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/0b/51/9eb7e2cd07a15d8bdd976f6190c0164f92ce1904e5c0c79198c4972926b7/kiwisolver-1.4.8-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:893f5525bb92d3d735878ec00f781b2de998333659507d29ea4466208df37bed", size = 1582857, upload-time = "2024-12-24T18:30:28.86Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/0f/95/c5a00387a5405e68ba32cc64af65ce881a39b98d73cc394b24143bebc5b8/kiwisolver-1.4.8-cp313-cp313t-musllinux_1_2_aarch64.whl", hash = "sha256:b47a465040146981dc9db8647981b8cb96366fbc8d452b031e4f8fdffec3f26d", size = 2293129, upload-time = "2024-12-24T18:30:30.34Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/44/83/eeb7af7d706b8347548313fa3a3a15931f404533cc54fe01f39e830dd231/kiwisolver-1.4.8-cp313-cp313t-musllinux_1_2_i686.whl", hash = "sha256:99cea8b9dd34ff80c521aef46a1dddb0dcc0283cf18bde6d756f1e6f31772165", size = 2421538, upload-time = "2024-12-24T18:30:33.334Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/05/f9/27e94c1b3eb29e6933b6986ffc5fa1177d2cd1f0c8efc5f02c91c9ac61de/kiwisolver-1.4.8-cp313-cp313t-musllinux_1_2_ppc64le.whl", hash = "sha256:151dffc4865e5fe6dafce5480fab84f950d14566c480c08a53c663a0020504b6", size = 2390661, upload-time = "2024-12-24T18:30:34.939Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/d9/d4/3c9735faa36ac591a4afcc2980d2691000506050b7a7e80bcfe44048daa7/kiwisolver-1.4.8-cp313-cp313t-musllinux_1_2_s390x.whl", hash = "sha256:577facaa411c10421314598b50413aa1ebcf5126f704f1e5d72d7e4e9f020d90", size = 2546710, upload-time = "2024-12-24T18:30:37.281Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/4c/fa/be89a49c640930180657482a74970cdcf6f7072c8d2471e1babe17a222dc/kiwisolver-1.4.8-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:be4816dc51c8a471749d664161b434912eee82f2ea66bd7628bd14583a833e85", size = 2349213, upload-time = "2024-12-24T18:30:40.019Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/81/84/8a5b628c6f2e661a48b296f335fdc1503f8ab5f49782db79217439853a34/kiwisolver-1.4.6-cp312-cp312-macosx_10_9_universal2.whl", hash = "sha256:979df7e9334f6a3694ee9be8d42817e519ef6d155a16499714d082cf41296852", size = 121807, upload-time = "2024-09-03T16:36:40.397Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/7f/2f/92210b842c87a22df953727c2ba2ceb28827de3a47dc157701d4524885fa/kiwisolver-1.4.6-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:50c9c6c42bb6ca231626d1182b9128e89c5ce3c64456f811ff0280deb42d7bfe", size = 65529, upload-time = "2024-09-03T16:36:41.869Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/51/8f/e1a0d4be4f549a2ef7a9dfa478b50ee92e9b9156e0194072c96f8b934757/kiwisolver-1.4.6-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:ace86489e7951bd26329a589198d3875c3d48380f889c69d3eb254b506a80101", size = 63895, upload-time = "2024-09-03T16:36:42.823Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/6d/0a/b82266406429d3a114f861d9dbfe08eee9ba1475ea09a75cefc0ccbb5372/kiwisolver-1.4.6-cp312-cp312-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:f94771988da902b475f78e85cf63c5c94392773b4a6494234d87c1b363b2fbc5", size = 1369291, upload-time = "2024-09-03T16:36:43.97Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/61/b5/2e68f99a97131bd06f7eeca5294541cde33d92af875f945cd4c1296c94a4/kiwisolver-1.4.6-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a62379eee430b1c477bb0a0bf6858a57c7c0dad9cee8b3144a5cb5d366c66a54", size = 1461449, upload-time = "2024-09-03T16:36:45.295Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/89/9e/47db05cdf2109a2e375c076fce6088c5fb493331225f8e588bd1992f287c/kiwisolver-1.4.6-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:e99b97d69499a7414572c906fbc7ca312519f2e17999730129f6c4492786e953", size = 1579164, upload-time = "2024-09-03T16:36:46.662Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/1f/d7/b6d86dd194ef83a259e30e2356c3ed16b40f59053a13dd6295c2ab99816e/kiwisolver-1.4.6-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:ab93f58afe3a02922a343189404f24ed885564e6316649790240124b95ef1d6e", size = 1507308, upload-time = "2024-09-03T16:36:48.025Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/5a/5f/f011569a61d48b39bbf606d675de79c85effabc1fbd291a6396538a8cc87/kiwisolver-1.4.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:34105f4460ba50fc18a16a8e77a5122f7affe075628763fda748ad0ec534c3ee", size = 1464190, upload-time = "2024-09-03T16:36:49.626Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/97/44/9adc480290c47e3a3f2bac4e1de2b3f164fef80c50b2e68d25f1503e36de/kiwisolver-1.4.6-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:0081f85f0222620563409d4804c6567a930a45dafbe9674c7913fde131653992", size = 2247874, upload-time = "2024-09-03T16:36:51.089Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/5c/5a/0585de17a52af89689b9d79575317e54d5541bc8d0aa8449faf8b9fd58a2/kiwisolver-1.4.6-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:df2a4a7cc2e01991e039a792457751b601bdf30143ab5f23f9a1e58f20c875f4", size = 2404199, upload-time = "2024-09-03T16:36:52.949Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/05/9c/fb3c9c407415126e31918db329de230988e779c9205a7099d674e5f64775/kiwisolver-1.4.6-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:1f401784df70ea2870e4e10adade66b5b06cb2c151bc2a8a414a1d10554e9a81", size = 2352457, upload-time = "2024-09-03T16:36:54.382Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/e2/e7/d7768d21801eb26dea144c264b4da10b995af279b017056c242c8f2ed5ac/kiwisolver-1.4.6-cp312-cp312-musllinux_1_2_s390x.whl", hash = "sha256:b19761c8c613b6d04c44f1a4797a144b44136f17ec009ccfb025e17b5698140c", size = 2501358, upload-time = "2024-09-03T16:36:56.232Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/92/47/fe6423e99e5e00fd8c014013bd146c019b299defee0d78a8fc8619c77d88/kiwisolver-1.4.6-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:ee7289430ded484cc2eff9d8ffcce58ed7fe2c26919321dbc0580322a49e0120", size = 2314119, upload-time = "2024-09-03T16:36:57.694Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/ee/90/d6ede870b381ae0386475c20327b1c8e52d3b3ced0c9a6d4f1bb067bfba2/kiwisolver-1.4.6-cp312-cp312-win32.whl", hash = "sha256:331b9d9f408e874ecf34bd79b79df8e099f0b1b351b8844609c1bfdc8d2d45b2", size = 46366, upload-time = "2024-09-03T16:36:58.931Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/6a/32/755f2db6c96102ebb7f078f617b17be18d5ba9ecf1423fec2194e5812451/kiwisolver-1.4.6-cp312-cp312-win_amd64.whl", hash = "sha256:a9be95d086578b3ada61a4621c0e7ee5f456820bfdccc3329061fdeae1e31179", size = 55882, upload-time = "2024-09-03T16:36:59.825Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/85/86/1c4fb5c0cd90bd1048d7de3febc8f94cd015d8c523d96a7aff4fc0045b00/kiwisolver-1.4.6-cp312-cp312-win_arm64.whl", hash = "sha256:773f2d87825779ab69196dfcf63e9d91043273421c6128c8d4ed82bc6316068f", size = 48533, upload-time = "2024-09-03T16:37:00.79Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/6d/16/de2395bfdc90626e8e7dc86f2349b0802d7e91d9cce4cd992c69ba2a8084/kiwisolver-1.4.6-cp313-cp313-win_arm64.whl", hash = "sha256:140f376c22b5148453acff768cff19c34ebbd593126617018732ea1d9ce65547", size = 48533, upload-time = "2024-09-03T16:37:01.686Z" },
+]
+
+[[package]]
+name = "kiwisolver"
+version = "1.4.7"
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+resolution-markers = [
+    "platform_machine == 'arm64' and sys_platform == 'darwin'",
+]
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/85/4d/2255e1c76304cbd60b48cee302b66d1dde4468dc5b1160e4b7cb43778f2a/kiwisolver-1.4.7.tar.gz", hash = "sha256:9893ff81bd7107f7b685d3017cc6583daadb4fc26e4a888350df530e41980a60", size = 97286, upload-time = "2024-09-04T09:39:44.302Z" }
+wheels = [
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/97/9c/0a11c714cf8b6ef91001c8212c4ef207f772dd84540104952c45c1f0a249/kiwisolver-1.4.7-cp312-cp312-macosx_10_9_universal2.whl", hash = "sha256:5360cc32706dab3931f738d3079652d20982511f7c0ac5711483e6eab08efff2", size = 121808, upload-time = "2024-09-04T09:04:38.637Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/80/c5/57fa58276dfdfa612241d640a64ca2f76adc6ffcebdbd135b4ef60095098/kiwisolver-1.4.7-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:48b571ecd8bae15702e4f22d3ff6a0f13e54d3d00cd25216d5e7f658242065ee", size = 63894, upload-time = "2024-09-04T09:04:41.6Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/c4/06/7da99b04259b0f18b557a4effd1b9c901a747f7fdd84cf834ccf520cb0b2/kiwisolver-1.4.7-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:2e6039dcbe79a8e0f044f1c39db1986a1b8071051efba3ee4d74f5b365f5226e", size = 121913, upload-time = "2024-09-04T09:05:04.072Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/2a/fc/6c0374f7503522539e2d4d1b497f5ebad3f8ed07ab51aed2af988dd0fb65/kiwisolver-1.4.7-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:7ab9ccab2b5bd5702ab0803676a580fffa2aa178c2badc5557a84cc943fcf750", size = 63888, upload-time = "2024-09-04T09:05:06.191Z" },
 ]
 
 [[package]]
@@ -271,7 +337,8 @@ dependencies = [
     { name = "contourpy" },
     { name = "cycler" },
     { name = "fonttools" },
-    { name = "kiwisolver" },
+    { name = "kiwisolver", version = "1.4.6", source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }, marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "kiwisolver", version = "1.4.7", source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }, marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
     { name = "numpy" },
     { name = "packaging" },
     { name = "pillow" },
@@ -320,26 +387,159 @@ wheels = [
 [[package]]
 name = "networkx"
 version = "3.5"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/6c/4f/ccdb8ad3a38e583f214547fd2f7ff1fc160c43a75af88e6aec213404b96a/networkx-3.5.tar.gz", hash = "sha256:d4c6f9cf81f52d69230866796b82afbccdec3db7ae4fbd1b65ea750feed50037", size = 2471065, upload-time = "2025-05-29T11:35:07.804Z" }
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/eb/8d/776adee7bbf76365fdd7f2552710282c79a4ead5d2a46408c9043a2b70ba/networkx-3.5-py3-none-any.whl", hash = "sha256:0030d386a9a06dee3565298b4a734b68589749a544acbb6c412dc9e2489ec6ec", size = 2034406, upload-time = "2025-05-29T11:35:04.961Z" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/networkx/networkx-3.5-py3-none-any.whl" },
 ]
 
 [[package]]
 name = "numpy"
-version = "1.26.4"
+version = "1.26.3"
 source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/65/6e/09db70a523a96d25e115e71cc56a6f9031e7b8cd166c1ac8438307c14058/numpy-1.26.4.tar.gz", hash = "sha256:2a02aba9ed12e4ac4eb3ea9421c420301a0c6460d9830d74a9df87efa4912010", size = 15786129, upload-time = "2024-02-06T00:26:44.495Z" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/d0/b0/13e2b50c95bfc1d5ee04925eb5c105726c838f922d0aaddd57b7c8be0f8b/numpy-1.26.3.tar.gz", hash = "sha256:697df43e2b6310ecc9d95f05d5ef20eacc09c7c4ecc9da3f235d39e71b7da1e4", size = 15679696, upload-time = "2024-01-02T22:49:55.9Z" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/95/12/8f2020a8e8b8383ac0177dc9570aad031a3beb12e38847f7129bacd96228/numpy-1.26.4-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:b3ce300f3644fb06443ee2222c2201dd3a89ea6040541412b8fa189341847218", size = 20335901, upload-time = "2024-02-05T23:55:32.801Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/75/5b/ca6c8bd14007e5ca171c7c03102d17b4f4e0ceb53957e8c44343a9546dcc/numpy-1.26.4-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:03a8c78d01d9781b28a6989f6fa1bb2c4f2d51201cf99d3dd875df6fbd96b23b", size = 13685868, upload-time = "2024-02-05T23:55:56.28Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/79/f8/97f10e6755e2a7d027ca783f63044d5b1bc1ae7acb12afe6a9b4286eac17/numpy-1.26.4-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9fad7dcb1aac3c7f0584a5a8133e3a43eeb2fe127f47e3632d43d677c66c102b", size = 13925109, upload-time = "2024-02-05T23:56:20.368Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/0f/50/de23fde84e45f5c4fda2488c759b69990fd4512387a8632860f3ac9cd225/numpy-1.26.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:675d61ffbfa78604709862923189bad94014bef562cc35cf61d3a07bba02a7ed", size = 17950613, upload-time = "2024-02-05T23:56:56.054Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/4c/0c/9c603826b6465e82591e05ca230dfc13376da512b25ccd0894709b054ed0/numpy-1.26.4-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:ab47dbe5cc8210f55aa58e4805fe224dac469cde56b9f731a4c098b91917159a", size = 13572172, upload-time = "2024-02-05T23:57:21.56Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/76/8c/2ba3902e1a0fc1c74962ea9bb33a534bb05984ad7ff9515bf8d07527cadd/numpy-1.26.4-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:1dda2e7b4ec9dd512f84935c5f126c8bd8b9f2fc001e9f54af255e8c5f16b0e0", size = 17786643, upload-time = "2024-02-05T23:57:56.585Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/28/4a/46d9e65106879492374999e76eb85f87b15328e06bd1550668f79f7b18c6/numpy-1.26.4-cp312-cp312-win32.whl", hash = "sha256:50193e430acfc1346175fcbdaa28ffec49947a06918b7b92130744e81e640110", size = 5677803, upload-time = "2024-02-05T23:58:08.963Z" },
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/16/2e/86f24451c2d530c88daf997cb8d6ac622c1d40d19f5a031ed68a4b73a374/numpy-1.26.4-cp312-cp312-win_amd64.whl", hash = "sha256:08beddf13648eb95f8d867350f6a018a4be2e5ad54c8d8caed89ebca558b2818", size = 15517754, upload-time = "2024-02-05T23:58:36.364Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/6d/66/5ea5b8ef7cb3f72ecd6c905abc2331f999bf7e9de247f9db8cc9642f0eda/numpy-1.26.3-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:a7081fd19a6d573e1a05e600c82a1c421011db7935ed0d5c483e9dd96b99cf13", size = 20335672, upload-time = "2024-01-02T22:28:04.673Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/94/9c/f1e88764737c126637d0434df712b1baa371a404a3e3751ee997e74e164b/numpy-1.26.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:12c70ac274b32bc00c7f61b515126c9205323703abb99cd41836e8125ea0043e", size = 13685503, upload-time = "2024-01-02T22:28:27.744Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/0d/28/c71314812a93fea1a1b68f54cbc3e530ed4d1118242bed6f4f3dd793c519/numpy-1.26.3-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7f784e13e598e9594750b2ef6729bcd5a47f6cfe4a12cca13def35e06d8163e3", size = 13924747, upload-time = "2024-01-02T22:28:50.39Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/c4/c6/f971d43a272e574c21707c64f12730c390f2bfa6426185fbdf0265a63cbd/numpy-1.26.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5f24750ef94d56ce6e33e4019a8a4d68cfdb1ef661a52cdaee628a56d2437419", size = 17950462, upload-time = "2024-01-02T22:29:22.924Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/51/d4/471df72f4662bcebb670eb9b5e07eca4b5a5229559ab0447cad34df815e0/numpy-1.26.3-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:77810ef29e0fb1d289d225cabb9ee6cf4d11978a00bb99f7f8ec2132a84e0166", size = 13571899, upload-time = "2024-01-02T22:29:45.379Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/d0/17/196d1b92de1bd3ca1519586845c2607e4e1a8a60f442fa084b15794b449a/numpy-1.26.3-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8ed07a90f5450d99dad60d3799f9c03c6566709bd53b497eb9ccad9a55867f36", size = 17786475, upload-time = "2024-01-02T22:30:14.286Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/3f/55/cd123e8d88a98d0bcc69a707f3dae8bfde64206040a826a030c241850014/numpy-1.26.3-cp312-cp312-win32.whl", hash = "sha256:f73497e8c38295aaa4741bdfa4fda1a5aedda5473074369eca10626835445511", size = 19999988, upload-time = "2024-01-02T22:30:47.32Z" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/ad/11/52fbe97fd84c91105b651d25a122f8deed6d3519afb14f9771fac1c9b7de/numpy-1.26.3-cp312-cp312-win_amd64.whl", hash = "sha256:da4b0c6c699a0ad73c810736303f7fbae483bcb012e38d7eb06a5e3b432c981b", size = 15517532, upload-time = "2024-01-02T22:31:13.404Z" },
+]
+
+[[package]]
+name = "nvidia-cublas-cu12"
+version = "12.6.4.1"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cublas-cu12/nvidia_cublas_cu12-12.6.4.1-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cuda-cccl-cu12"
+version = "12.6.77"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cuda-cccl-cu12/nvidia_cuda_cccl_cu12-12.6.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cuda-cupti-cu12"
+version = "12.6.80"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cuda-cupti-cu12/nvidia_cuda_cupti_cu12-12.6.80-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cuda-nvrtc-cu12"
+version = "12.6.77"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cuda-nvrtc-cu12/nvidia_cuda_nvrtc_cu12-12.6.77-py3-none-manylinux2014_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cuda-runtime-cu12"
+version = "12.6.77"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cuda-runtime-cu12/nvidia_cuda_runtime_cu12-12.6.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cudnn-cu12"
+version = "9.5.1.17"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+dependencies = [
+    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+]
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cudnn-cu12/nvidia_cudnn_cu12-9.5.1.17-py3-none-manylinux_2_28_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cufft-cu12"
+version = "11.3.0.4"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+dependencies = [
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+]
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cufft-cu12/nvidia_cufft_cu12-11.3.0.4-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cufile-cu12"
+version = "1.11.1.6"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cufile-cu12/nvidia_cufile_cu12-1.11.1.6-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-curand-cu12"
+version = "10.3.7.77"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-curand-cu12/nvidia_curand_cu12-10.3.7.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cusolver-cu12"
+version = "11.7.1.2"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+dependencies = [
+    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "nvidia-cusparse-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+]
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cusolver-cu12/nvidia_cusolver_cu12-11.7.1.2-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cusparse-cu12"
+version = "12.5.4.2"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+dependencies = [
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
+]
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cusparse-cu12/nvidia_cusparse_cu12-12.5.4.2-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-cusparselt-cu12"
+version = "0.6.3"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cusparselt-cu12/nvidia_cusparselt_cu12-0.6.3-py3-none-manylinux2014_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-nccl-cu12"
+version = "2.25.1"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-nccl-cu12/nvidia_nccl_cu12-2.25.1-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-nvjitlink-cu12"
+version = "12.6.85"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-nvjitlink-cu12/nvidia_nvjitlink_cu12-12.6.85-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl" },
+]
+
+[[package]]
+name = "nvidia-nvtx-cu12"
+version = "12.6.77"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-nvtx-cu12/nvidia_nvtx_cu12-12.6.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
 ]
 
 [[package]]
@@ -360,12 +560,58 @@ wheels = [
 ]
 
 [[package]]
+name = "opt-einsum"
+version = "3.3.0"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+dependencies = [
+    { name = "numpy" },
+]
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/opt-einsum/opt_einsum-3.3.0-py3-none-any.whl" },
+]
+
+[[package]]
 name = "packaging"
 version = "25.0"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/a1/d4/1fc4078c65507b51b96ca8f8c3ba19e6a61c8253c72794544580a7b6c24d/packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f", size = 165727, upload-time = "2025-04-19T11:48:59.673Z" }
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484", size = 66469, upload-time = "2025-04-19T11:48:57.875Z" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/packaging/packaging-25.0-py3-none-any.whl" },
+]
+
+[[package]]
+name = "paddlepaddle-gpu"
+version = "3.1.0"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+dependencies = [
+    { name = "decorator" },
+    { name = "httpx" },
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "nvidia-cublas-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-cccl-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-cupti-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-nvrtc-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cuda-runtime-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cudnn-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cufft-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cufile-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-curand-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cusolver-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cusparse-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-cusparselt-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-nccl-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "nvidia-nvtx-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "opt-einsum" },
+    { name = "pillow" },
+    { name = "protobuf" },
+    { name = "typing-extensions" },
+]
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/paddlepaddle-gpu/paddlepaddle_gpu-3.1.0-cp312-cp312-linux_x86_64.whl" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/paddlepaddle-gpu/paddlepaddle_gpu-3.1.0-cp312-cp312-win_amd64.whl" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/paddlepaddle-gpu/paddlepaddle_gpu-3.1.0-cp313-cp313-linux_x86_64.whl" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/paddlepaddle-gpu/paddlepaddle_gpu-3.1.0-cp313-cp313-win_amd64.whl" },
 ]
 
 [[package]]
@@ -435,6 +681,15 @@ wheels = [
 ]
 
 [[package]]
+name = "protobuf"
+version = "6.31.1"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/protobuf/protobuf-6.31.1-cp310-abi3-win_amd64.whl" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/protobuf/protobuf-6.31.1-cp39-abi3-manylinux2014_x86_64.whl" },
+]
+
+[[package]]
 name = "psycopg"
 version = "3.2.9"
 source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
@@ -484,22 +739,20 @@ wheels = [
 [[package]]
 name = "pyparsing"
 version = "3.2.3"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/bb/22/f1129e69d94ffff626bdb5c835506b3a5b4f3d070f17ea295e12c2c6f60f/pyparsing-3.2.3.tar.gz", hash = "sha256:b9c13f1ab8b3b542f72e28f634bad4de758ab3ce4546e4301970ad6fa77c38be", size = 1088608, upload-time = "2025-03-25T05:01:28.114Z" }
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/05/e7/df2285f3d08fee213f2d041540fa4fc9ca6c2d44cf36d3a035bf2a8d2bcc/pyparsing-3.2.3-py3-none-any.whl", hash = "sha256:a749938e02d6fd0b59b356ca504a24982314bb090c383e3cf201c95ef7e2bfcf", size = 111120, upload-time = "2025-03-25T05:01:24.908Z" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/pyparsing/pyparsing-3.2.3-py3-none-any.whl" },
 ]
 
 [[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
 dependencies = [
     { name = "six" },
 ]
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/python-dateutil/python_dateutil-2.9.0.post0-py2.py3-none-any.whl" },
 ]
 
 [[package]]
@@ -660,10 +913,17 @@ wheels = [
 [[package]]
 name = "six"
 version = "1.17.0"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/six/six-1.17.0-py2.py3-none-any.whl" },
+]
+
+[[package]]
+name = "sniffio"
+version = "1.3.1"
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+wheels = [
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/sniffio/sniffio-1.3.1-py3-none-any.whl" },
 ]
 
 [[package]]
@@ -699,8 +959,7 @@ wheels = [
 [[package]]
 name = "tzdata"
 version = "2025.2"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/95/32/1a225d6164441be760d75c2c42e2780dc0873fe382da3e98a2e1e48361e5/tzdata-2025.2.tar.gz", hash = "sha256:b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9", size = 196380, upload-time = "2025-03-23T13:54:43.652Z" }
+source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
 wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/5c/23/c7abc0ca0a1526a0774eca151daeb8de62ec457e77262b66b359c3c7679e/tzdata-2025.2-py2.py3-none-any.whl", hash = "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8", size = 347839, upload-time = "2025-03-23T13:54:41.845Z" },
+    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/tzdata/tzdata-2025.2-py2.py3-none-any.whl" },
 ]

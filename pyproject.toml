@@ -1,6 +1,8 @@
 [[tool.uv.index]]
 url = "https://mirrors.ustc.edu.cn/pypi/simple"
 default = true
+[[tool.uv.index]]
+url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
 
 [tool.pyright]
 extraPaths = ["/opt/MVS/Samples/64/Python/MvImport"]
@@ -21,6 +23,7 @@ dependencies = [
     "imgaug>=0.4.0",
     "numpy<2",
     "opencv-python<=4.6",
+    "paddlepaddle-gpu==3.1.0",
     "psycopg[binary]>=3.2.9",
     "pyyaml>=6.0.2",
     # paddle 中依赖
