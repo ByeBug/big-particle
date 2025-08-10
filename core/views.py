@@ -98,8 +98,8 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
             # 处理 save_frames 变化（仅在不需要重启时）
             elif save_frames_changed and existing_processor:
                 try:
-                    logger.info(f"更新保存帧设置: {video_stream.id} -> {save_frames_new}")
                     save_frames_new = serializer.validated_data.get('save_frames', serializer.instance.save_frames)
+                    logger.info(f"更新保存帧设置: {video_stream.id} -> {save_frames_new}")
                     existing_processor.video_stream.save_frames = save_frames_new
                     if save_frames_new:
                         existing_processor.start_save_thread()
