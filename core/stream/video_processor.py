@@ -365,7 +365,9 @@ class VideoStreamProcessor:
                 continue
             except Exception as e:
                 self.logger.error(f"保存线程错误: {e}")
-    
+        
+        self.logger.info("保存线程退出")
+
     def get_actual_fps(self) -> int:
         """获取实时帧率"""
         if self.decoder and self.decoder_valid:
@@ -467,6 +469,7 @@ active_processors: dict[int, VideoStreamProcessor] = {}
 # 全局清理线程
 cleanup_thread = None
 cleanup_running = False
+cleanup_stop_event = threading.Event()
 
 
 def get_processor(video_stream_id: int) -> Optional[VideoStreamProcessor]:
@@ -493,7 +496,7 @@ def remove_processor(video_stream_id: int):
 
 def cleanup_loop():
     """清理线程：每分钟检查磁盘空间，必要时删除最旧的图片目录"""
-    global cleanup_running
+    global cleanup_running, cleanup_stop_event
     
     while cleanup_running:
         try:
@@ -517,11 +520,13 @@ def cleanup_loop():
                 logger.info(f"磁盘空间充足: {free_space_gb:.1f}GB")
             
             # 等待30秒后再次检查
-            time.sleep(30)
+            cleanup_stop_event.wait(timeout=30)
             
         except Exception as e:
             logger.error(f"清理线程错误: {e}")
-            time.sleep(30)
+            cleanup_stop_event.wait(timeout=30)
+
+    logger.info("清理线程退出")
 
 def get_free_space_gb(path: str) -> float:
     """获取指定路径的剩余磁盘空间（GB）"""
@@ -578,15 +583,16 @@ def start_cleanup_thread():
         return
     
     cleanup_running = True
-    cleanup_thread = threading.Thread(target=cleanup_loop, name="frame-cleanup", daemon=True)
+    cleanup_thread = threading.Thread(target=cleanup_loop, name="frame-cleanup")
     cleanup_thread.start()
     logger.info("清理线程已启动")
 
 def stop_cleanup_thread():
     """停止清理线程"""
-    global cleanup_thread, cleanup_running
+    global cleanup_thread, cleanup_running, cleanup_stop_event
     
     cleanup_running = False
+    cleanup_stop_event.set()
     if cleanup_thread and cleanup_thread.is_alive():
         cleanup_thread.join(timeout=5.0)
         if cleanup_thread.is_alive():
