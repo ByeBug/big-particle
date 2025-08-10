@@ -4,9 +4,6 @@ import os
 import logging
 from django.apps import AppConfig
 
-from .stream.video_processor import shutdown_all_processors
-from .stream.algorithm.thread_pool import shutdown_global_thread_pool
-
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +35,9 @@ class CoreConfig(AppConfig):
     
     def _register_signal_handlers(self):
         """注册信号处理器"""
+        # 惰性导入，避免在 App 未就绪时导入引用 models 的模块
+        from .stream.video_processor import shutdown_all_processors
+        from .stream.algorithm.thread_pool import shutdown_global_thread_pool
         def shutdown_handler(signum, frame):
             """处理关闭信号"""
             logger.info(f"接收到信号 {signum}，正在关闭...")

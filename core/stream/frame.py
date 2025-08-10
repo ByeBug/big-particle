@@ -2,6 +2,7 @@
 解码帧数据类
 """
 import logging
+import threading
 from typing import Any
 import cv2
 import numpy as np
@@ -58,6 +59,10 @@ class DecodedFrame:
         self.algo_status: dict[str, InferStatus] = {}
         # 算法结果字典 {algo_name: Any}
         self.algo_results: dict[str, Any] = {}
+        # 模型完成事件字典 {model_name, threading.Event}
+        self.model_events: dict[str, threading.Event] = {}
+        # 模型结果字典 {model_name, Any}
+        self.model_results: dict[str, Any] = {}
     
     @property
     def shape(self) -> tuple:

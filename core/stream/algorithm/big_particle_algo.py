@@ -7,7 +7,10 @@ from concurrent.futures import Future
 
 from .status import InferStatus
 from .thread_pool import get_global_thread_pool
+from .model.model_manager import ModelManager
 from ..frame import DecodedFrame
+from .model.paddle_detector import PaddleDetector
+from ..logging_utils import StreamLoggerAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 class BigParticleAlgo:
     """大颗粒检测算法"""
     
-    def __init__(self, stream_id: int, name: str, algorithm_config: dict = None):
+    def __init__(self, stream_id: int, algo_config: dict = None):
         """
         初始化大颗粒算法实例
         
@@ -24,12 +27,19 @@ class BigParticleAlgo:
             algorithm_config: 算法配置参数，如阈值等
         """
         self.stream_id = stream_id
-        self.name = name
-        self.algorithm_config = algorithm_config or {}
-        self.logger = logging.getLogger(f"{__name__}.{stream_id}")
+        self.name = algo_config['name']
+        self.algo_config = algo_config or {}
+        # 设置带 StreamID 的日志器
+        self.logger = StreamLoggerAdapter(logger, {'stream_id': stream_id})
         
-        # TODO 初始化模型
-        self.logger.info(f"已初始化算法实例: stream_id={stream_id}, name={name}")
+        # 获取模型
+        self.detector: PaddleDetector = ModelManager.get_model(
+            model_class=PaddleDetector,
+            model_path=self.algo_config['model_path'],
+            batch_size=self.algo_config['batch_size']
+        )
+
+        self.logger.info(f"已初始化算法实例: {self.name}")
     
     def submit(self, frame: DecodedFrame) -> Future:
         """
@@ -54,23 +64,38 @@ class BigParticleAlgo:
         
         Args:
             frame: 待处理的解码帧
-            
-        Returns:
-            处理结果（具体格式待定）
         """
         try:
-            # TODO: 实现具体的大颗粒检测逻辑
-            # 目前只是模拟处理时间
-            if frame.algo_status[self.name] == InferStatus.NEED_INFER:
-                time.sleep(0.05)
-            elif frame.algo_status[self.name] == InferStatus.NEED_RENDER:
-                time.sleep(0.01)
+            algo_status = frame.algo_status[self.name]
             
+            if algo_status == InferStatus.NEED_INFER:
+                # 推理：提交到模型队列并等待完成，推理失败直接返回，不进行后续处理
+                if self.detector.submit_frame(frame):
+                    # 等待模型推理完成（最多等待1秒）
+                    if frame.model_events[self.detector.model_name].wait(timeout=1.0):
+                        self.logger.debug(f"推理完成: frame={frame.frame_number}")
+                    else:
+                        self.logger.warning(f"推理超时: frame={frame.frame_number}")
+                        return
+                else:
+                    self.logger.warning(f"提交帧失败: frame={frame.frame_number}")
+                    return
+                
+                # TODO 模型推理完成，设置最新的推理结果，进行业务逻辑处理等，设置帧的算法结果
+                frame.algo_results[self.name] = []
+            
+            # TODO 渲染
+
+            if algo_status == InferStatus.NEED_INFER:
+                # TODO 对于推理的帧执行后续的业务逻辑，如保存记录等
+                pass
+
+            # 设置算法完成状态
             frame.algo_status[self.name] = InferStatus.DONE
-            frame.algo_results[self.name] = []
             
-            self.logger.debug(f"帧处理完成: frame={frame.frame_number}")
+            self.logger.debug(f"算法处理完成: frame={frame.frame_number}, status={algo_status}")
+
+            # TODO 该算法推理完成，有没有 countDown 机制，减到零后能唤醒推理线程
             
         except Exception as e:
-            self.logger.error(f"帧处理失败: frame={frame.frame_number}, error={e}")
-            raise  # 重新抛出异常，让调用者处理
+            self.logger.error(f"算法处理失败: frame={frame.frame_number}, error={e}")

@@ -35,8 +35,10 @@ class VideoStreamProcessor:
     # 算法配置
     ALGORITHM_CONFIGS = {
         'big_particle': {
+            'enabled': True,
             'infer_interval_ms': 100,  # 推理间隔100ms
-            'enabled': True
+            'model_path': '/home/zhaosiyuan/dev/big-particle/backend/paddle_samples/models/big_particle_trt',
+            'batch_size': 8
         }
     }
     
@@ -108,6 +110,7 @@ class VideoStreamProcessor:
     
     def stop(self):
         """停止所有处理线程"""
+        # TODO 关闭流内的所有算法实例。算法实例关闭时释放对 model 的引用。model 引用为 0 时释放
         self.logger.info("停止视频流处理器")
         self.running = False
         self._stop_event.set()  # 触发停止事件，中断等待
@@ -214,12 +217,17 @@ class VideoStreamProcessor:
         """初始化算法实例"""
         for algo_name, algo_config in self.ALGORITHM_CONFIGS.items():
             if algo_config.get('enabled', False):
-                self.logger.info(f"初始化算法: {algo_name}")
-                if algo_name == 'big_particle':
-                    algo_instance = BigParticleAlgo(self.video_stream.id, algo_name, algo_config)
-                    self.algorithms.append(algo_instance)
+                try:
+                    self.logger.info(f"初始化算法: {algo_name}")
+                    algo_config['name'] = algo_name
+                    if algo_name == 'big_particle':
+                        algo_instance = BigParticleAlgo(self.video_stream.id, algo_config)
+                        self.algorithms.append(algo_instance)
                     # 初始化下次推理时间为 -1
                     self.next_infer_times[algo_name] = -1
+                except Exception as e:
+                    self.logger.error(f"初始化算法 {algo_name} 失败: {e}")
+                    continue
         
         self.logger.info(f"共初始化 {len(self.algorithms)} 个算法")
     
@@ -248,6 +256,7 @@ class VideoStreamProcessor:
         """推理线程：处理推理队列中的帧"""
         while self.running:
             try:
+                # TODO 从队列中移除了帧，推理队列不会满，推理压力给了算法中的全局线程池，需要优化
                 frame = self.infer_queue.get(timeout=1.0)
                 frame_timestamp = frame.timestamp  # 毫秒时间戳
                 
