@@ -328,7 +328,7 @@ class VideoStreamProcessor:
     
     def encode_frame(self, frame):
         """编码一帧数据"""
-        # TODO: 实现编码逻辑，输出编码后的视频流
+        # TODO: 实现编码逻辑，输出编码后的视频流，帧有 canvas 则用 canvas 编码，否则用 ocv_image 编码
         # print(f"编码处理: {frame}")  # 高频日志，暂时注释
         time.sleep(0.05)  # 模拟编码时间
     

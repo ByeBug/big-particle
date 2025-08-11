@@ -1,6 +1,7 @@
 """
 大颗粒检测算法
 """
+import cv2
 import logging
 import time
 from concurrent.futures import Future
@@ -9,6 +10,7 @@ from .status import InferStatus
 from .thread_pool import get_global_thread_pool
 from .model.model_manager import ModelManager
 from ..frame import DecodedFrame
+from .model.instance import Instance
 from .model.paddle_detector import PaddleDetector
 from ..logging_utils import StreamLoggerAdapter
 
@@ -38,6 +40,8 @@ class BigParticleAlgo:
             model_path=self.algo_config['model_path'],
             batch_size=self.algo_config['batch_size']
         )
+
+        self.instances: list[Instance] = []
 
         self.logger.info(f"已初始化算法实例: {self.name}")
     
@@ -82,12 +86,26 @@ class BigParticleAlgo:
                     return
                 
                 # TODO 模型推理完成，设置最新的推理结果，进行业务逻辑处理等，设置帧的算法结果
-                frame.algo_results[self.name] = []
+                self.instances = frame.model_results[self.detector.model_name]
+                frame.algo_results[self.name] = self.instances
             
-            # TODO 渲染
+            # 推理结果处理完立刻渲染，先于其他业务逻辑，以便在编码前完成渲染
+            # 有检测结果才获取画布
+            if self.instances:
+                canvas = frame.canvas
+                for instance in self.instances:
+                    # 提取边界框坐标 (x1, y1, x2, y2)
+                    x1, y1, x2, y2 = instance.left, instance.top, instance.right, instance.bottom
+                    # 绘制红色矩形框
+                    cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
             if algo_status == InferStatus.NEED_INFER:
                 # TODO 对于推理的帧执行后续的业务逻辑，如保存记录等
+                if self.instances:
+                    # TODO 保存业务记录
+                    # TODO 保存推理记录，不需要每个算法单独保存图片，一帧只需要保存一个原图
+                    # 如果该算法需要保存该帧结果，则设置该帧的 algo_results_for_save
+                    pass
                 pass
 
             # 设置算法完成状态

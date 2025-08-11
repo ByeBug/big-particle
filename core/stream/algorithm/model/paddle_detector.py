@@ -201,23 +201,30 @@ class PaddleDetector:
 
     def _preprocess_batch(self, batch_frames: List[DecodedFrame]):
         """预处理一批帧"""
-        input_im_list = []
-        input_im_info_list = []
+        batch_imgs = []
+        batch_img_shapes = []
+        batch_scale_factors = []
         for frame in batch_frames:
             # 推理需要 RGB 格式 TODO 将 RGB 格式缓存到帧内
             im = cv2.cvtColor(frame.ocv_image, cv2.COLOR_BGR2RGB)
             im_info = {
-                'scale_factor': np.array([1., 1.], dtype=np.float32),
                 'im_shape': np.array(im.shape[:2], dtype=np.float32),
+                'scale_factor': np.array([1., 1.], dtype=np.float32),
             }
             # 顺序执行预处理步骤
             for operator in self.preprocess_ops:
                 im, im_info = operator(im, im_info)
             
-            input_im_list.append(im)
-            input_im_info_list.append(im_info)
+            batch_imgs.append(im)
+            batch_img_shapes.append(im_info['im_shape'])
+            batch_scale_factors.append(im_info['scale_factor'])
         
-        inputs = self._create_inputs(input_im_list, input_im_info_list)
+        inputs = {
+            'image': np.stack(batch_imgs).astype('float32'),
+            'im_shape': np.array(batch_img_shapes, dtype='float32'),
+            'scale_factor': np.array(batch_scale_factors, dtype='float32')
+        }
+
         input_names = self.predictor.get_input_names()
         for i in range(len(input_names)):
             input_tensor = self.predictor.get_input_handle(input_names[i])
@@ -225,24 +232,6 @@ class PaddleDetector:
                 input_tensor.copy_from_cpu(inputs['image'])
             else:
                 input_tensor.copy_from_cpu(inputs[input_names[i]])
-
-    def _create_inputs(self, im_list, im_info_list):
-        """创建模型输入
-        Args:
-            im_list (list of np.ndarray): 图片列表，同一尺寸，已预处理
-            im_info_list (list of dict): 图片信息列表
-        Returns:
-            dict: 模型输入
-        """
-        imgs = np.stack(im_list).astype('float32')
-        im_shape = np.array([e['im_shape'] for e in im_info_list], dtype='float32')
-        scale_factor = np.array([e['scale_factor'] for e in im_info_list], dtype='float32')
-
-        return {
-            'image': imgs,
-            'im_shape': im_shape,
-            'scale_factor': scale_factor
-        }
 
     def _predict_batch(self):
         """推理帧"""
@@ -291,7 +280,7 @@ class PaddleDetector:
                 # 模型输出的坐标已经是原图的尺寸
                 xmin, ymin, xmax, ymax = bbox
                 im_instances.append(Instance(clsid, self.label_list[clsid], score,
-                    left=xmin, top=ymin, right=xmax, bottom=ymax))
+                    left=int(xmin), top=int(ymin), right=int(xmax), bottom=int(ymax)))
             
             batch_im_instances.append(im_instances)
             

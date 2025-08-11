@@ -67,6 +67,10 @@ class DecodedFrame:
         
         # CountDownLatch: 等待所有算法完成
         self.algo_latch: Optional[CountDownLatch] = None
+        
+        # 画布相关属性
+        self._canvas: Optional[np.ndarray] = None
+        self._canvas_lock = threading.Lock()
     
     @property
     def shape(self) -> tuple:
@@ -92,6 +96,35 @@ class DecodedFrame:
     def is_gray(self) -> bool:
         """判断是否为灰度图像"""
         return self.channels == 1
+    
+    @property
+    def canvas(self) -> np.ndarray:
+        """
+        获取用于绘制推理结果的画布
+        
+        画布是 ocv_image 的深度复制，供各种算法在其上绘制推理结果。
+        使用线程安全的懒加载机制，多个算法线程可以安全地访问。
+        
+        Returns:
+            np.ndarray: 用于绘制的画布副本
+        """
+        with self._canvas_lock:
+            if self._canvas is None:
+                self._canvas = self.ocv_image.copy()
+            return self._canvas
+    
+    def has_canvas(self) -> bool:
+        """
+        判断是否已创建画布
+        
+        用于渲染线程判断是否有算法在画布上绘制过内容，
+        如果有则使用画布进行渲染，否则使用原图。
+        
+        Returns:
+            bool: 是否已创建画布
+        """
+        with self._canvas_lock:
+            return self._canvas is not None
     
     def save(self, file_path: str) -> bool:
         """
