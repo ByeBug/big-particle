@@ -6,6 +6,15 @@ from queue import Full, Queue, Empty
 from collections import defaultdict
 from typing import Dict, List
 
+import paddle
+from paddle.inference import Config
+from paddle.inference import create_predictor
+import yaml
+import numpy as np
+import cv2
+
+from .instance import Instance
+from .preprocess import Resize, NormalizeImage, Permute
 from core.stream.frame import DecodedFrame
 
 logger = logging.getLogger(__name__)
@@ -19,9 +28,64 @@ class PaddleDetector:
         self.model_path = os.path.normpath(model_path)
         self.model_name = self.model_path.split('/')[-1]
         self.batch_size = batch_size
+        self.threshold = 0.5
         
         # 流队列字典 {stream_id: Queue}
         self.stream_queues: Dict[int, Queue] = defaultdict(lambda: Queue(maxsize=10))
+
+        paddle.enable_static()
+
+        deploy_file = os.path.join(self.model_path, 'infer_cfg.yml')
+        if not os.path.exists(deploy_file):
+            raise FileNotFoundError(f"模型配置文件不存在: {deploy_file}")
+        with open(deploy_file, 'r') as f:
+            yml_conf = yaml.safe_load(f)
+        
+        self.mask = False
+        if 'mask' in yml_conf:
+            self.mask = yml_conf['mask']
+        self.label_list = yml_conf['label_list']
+
+        infer_model = os.path.join(self.model_path, 'model.pdmodel')
+        infer_params = os.path.join(self.model_path, 'model.pdiparams')
+        self.config = Config(infer_model, infer_params)
+        self.config.enable_use_gpu(200, 0)
+        self.config.switch_ir_optim(True)
+        self.config.enable_tensorrt_engine(
+            workspace_size=15 * 1024 * 1024 * 1024,     # 15GB，仅在生成 trt 模型时生效
+            max_batch_size=8,
+            min_subgraph_size=yml_conf['min_subgraph_size'],
+            precision_mode=Config.Precision.Half,
+            use_static=True,        # 默认使用 trt 缓存模型
+            use_calib_mode=False
+        )
+        min_input_shape = {
+            'image': [1, 3, 640, 640],
+            'scale_factor': [1, 2]
+        }
+        max_input_shape = {
+            'image': [8, 3, 640, 640],
+            'scale_factor': [8, 2]
+        }
+        opt_input_shape = {
+            'image': [4, 3, 640, 640],
+            'scale_factor': [4, 2]
+        }
+        self.config.set_trt_dynamic_shape_info(min_input_shape, max_input_shape,
+                                            opt_input_shape)
+        # disable print log when predict
+        self.config.disable_glog_info()
+        # enable shared memory
+        self.config.enable_memory_optim()
+        # disable feed, fetch OP, needed by zero_copy_run
+        self.config.switch_use_feed_fetch_ops(False)
+        self.predictor = create_predictor(self.config)
+
+        self.preprocess_ops = []
+        for op_info in yml_conf['Preprocess']:
+            new_op_info = op_info.copy()
+            op_type = new_op_info.pop('type')
+            self.preprocess_ops.append(eval(op_type)(**new_op_info))
 
         # 线程控制
         self.running = False
@@ -30,7 +94,7 @@ class PaddleDetector:
         # 启动推理线程
         self.start_infer_thread()
 
-        logger.info(f"初始化 PaddleDetector: {self.model_name}, batch_size={self.batch_size}")
+        logger.info(f"已初始化 PaddleDetector: {self.model_name}, batch_size={self.batch_size}")
     
     def start_infer_thread(self):
         """启动推理线程"""
@@ -117,32 +181,125 @@ class PaddleDetector:
         try:
             logger.debug(f"开始批量推理: batch_size={len(batch_frames)}")
             
-            # TODO: 实现实际的批量推理逻辑
-            # 这里暂时模拟推理时间
-            time.sleep(0.01 * len(batch_frames))  # 模拟推理时间
+            self._preprocess_batch(batch_frames)
+            batch_result = self._predict_batch()
+            batch_im_instances = self._postprocess_batch(batch_result)
             
             # 设置每帧的推理结果
-            for frame in batch_frames:
-                # 模拟推理结果
-                result = {
-                    'detections': [],  # 空的检测结果
-                    'inference_time': 0.05,
-                    'model_path': self.model_path
-                }
-                
-                # 将结果设置到帧上
-                frame.model_results[self.model_name] = result
+            for frame, im_instances in zip(batch_frames, batch_im_instances):
+                frame.model_results[self.model_name] = im_instances
                 frame.model_events[self.model_name].set()
             
             logger.debug(f"批量推理完成: batch_size={len(batch_frames)}")
             
         except Exception as e:
-            logger.error(f"批量推理失败: {e}")
+            logger.exception(f"批量推理失败: {e}")
             
             # 失败时也要触发完成事件
             for frame in batch_frames:
                 frame.model_events[self.model_name].set()
-    
+
+    def _preprocess_batch(self, batch_frames: List[DecodedFrame]):
+        """预处理一批帧"""
+        input_im_list = []
+        input_im_info_list = []
+        for frame in batch_frames:
+            # 推理需要 RGB 格式 TODO 将 RGB 格式缓存到帧内
+            im = cv2.cvtColor(frame.ocv_image, cv2.COLOR_BGR2RGB)
+            im_info = {
+                'scale_factor': np.array([1., 1.], dtype=np.float32),
+                'im_shape': np.array(im.shape[:2], dtype=np.float32),
+            }
+            # 顺序执行预处理步骤
+            for operator in self.preprocess_ops:
+                im, im_info = operator(im, im_info)
+            
+            input_im_list.append(im)
+            input_im_info_list.append(im_info)
+        
+        inputs = self._create_inputs(input_im_list, input_im_info_list)
+        input_names = self.predictor.get_input_names()
+        for i in range(len(input_names)):
+            input_tensor = self.predictor.get_input_handle(input_names[i])
+            if input_names[i] == 'x':
+                input_tensor.copy_from_cpu(inputs['image'])
+            else:
+                input_tensor.copy_from_cpu(inputs[input_names[i]])
+
+    def _create_inputs(self, im_list, im_info_list):
+        """创建模型输入
+        Args:
+            im_list (list of np.ndarray): 图片列表，同一尺寸，已预处理
+            im_info_list (list of dict): 图片信息列表
+        Returns:
+            dict: 模型输入
+        """
+        imgs = np.stack(im_list).astype('float32')
+        im_shape = np.array([e['im_shape'] for e in im_info_list], dtype='float32')
+        scale_factor = np.array([e['scale_factor'] for e in im_info_list], dtype='float32')
+
+        return {
+            'image': imgs,
+            'im_shape': im_shape,
+            'scale_factor': scale_factor
+        }
+
+    def _predict_batch(self):
+        """推理帧"""
+        self.predictor.run()
+
+        output_names = self.predictor.get_output_names()
+        
+        boxes_tensor = self.predictor.get_output_handle(output_names[0])
+        np_boxes = boxes_tensor.copy_to_cpu()
+        
+        if len(output_names) == 1:
+            # some exported model can not get tensor 'bbox_num' 
+            np_boxes_num = np.array([len(np_boxes)])
+        else:
+            boxes_num = self.predictor.get_output_handle(output_names[1])
+            np_boxes_num = boxes_num.copy_to_cpu()
+        
+        result = {
+            # shape: [N, 6]，每个元素：[class, score, x_min, y_min, x_max, y_max]
+            'boxes': np_boxes,
+            # shape: [N,]，每个元素：每张图片的检测框数量
+            'boxes_num': np_boxes_num,
+        }
+
+        if self.mask:
+            masks_tensor = self.predictor.get_output_handle(output_names[2])
+            np_masks = masks_tensor.copy_to_cpu()
+            result['masks'] = np_masks
+        
+        return result
+
+    def _postprocess_batch(self, batch_result: Dict[str, np.ndarray]):
+        """后处理帧"""
+        batch_im_instances = []
+        start_idx = 0
+        for boxes_num in batch_result['boxes_num']:
+            im_instances = []
+            # 获取一批中单张图片的检测框
+            im_boxes = batch_result['boxes'][start_idx:start_idx + boxes_num, :]
+            # 过滤检测框
+            expect_boxes = (im_boxes[:, 1] > self.threshold) & (im_boxes[:, 0] > -1)
+            im_boxes = im_boxes[expect_boxes, :]
+
+            for box in im_boxes:
+                clsid, score, bbox = int(box[0]), box[1], box[2:]
+                # 模型输出的坐标已经是原图的尺寸
+                xmin, ymin, xmax, ymax = bbox
+                im_instances.append(Instance(clsid, self.label_list[clsid], score,
+                    left=xmin, top=ymin, right=xmax, bottom=ymax))
+            
+            batch_im_instances.append(im_instances)
+            
+            # 调整索引获取下一张图的检测框
+            start_idx += boxes_num
+        
+        return batch_im_instances
+
     def cleanup(self):
         """清理资源"""
         self.stop_infer_thread()

@@ -3,5 +3,6 @@
 """
 from .paddle_detector import PaddleDetector
 from .model_manager import ModelManager
+from .instance import Instance
 
-__all__ = ['PaddleDetector', 'ModelManager']
+__all__ = ['PaddleDetector', 'ModelManager', 'Instance']
