@@ -3,16 +3,21 @@
 """
 import cv2
 import logging
+from datetime import datetime
 import time
 from concurrent.futures import Future
 
+from django.utils import timezone
+
 from .status import InferStatus
-from .thread_pool import get_global_thread_pool
+from .thread_pool import get_algo_thread_pool, get_io_thread_pool
 from .model.model_manager import ModelManager
 from ..frame import DecodedFrame
 from .model.instance import Instance
 from .model.paddle_detector import PaddleDetector
 from ..logging_utils import StreamLoggerAdapter
+from ..save_utils import save_rendered_image
+from core.models import AlgoBigParticleRecord
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +31,7 @@ class BigParticleAlgo:
         
         Args:
             stream_id: 视频流ID
-            algorithm_config: 算法配置参数，如阈值等
+            algo_config: 算法配置参数，如阈值等
         """
         self.stream_id = stream_id
         self.name = algo_config['name']
@@ -56,7 +61,7 @@ class BigParticleAlgo:
             Future: 异步任务对象
         """
         # 提交到全局线程池
-        future = get_global_thread_pool().submit(self.handle, frame)
+        future = get_algo_thread_pool().submit(self.handle, frame)
         
         self.logger.debug(f"提交帧处理任务: frame={frame.frame_number}")
         
@@ -71,9 +76,11 @@ class BigParticleAlgo:
         """
         try:
             algo_status = frame.algo_status[self.name]
+            algo_running_info = frame.algo_running_info[self.name]
             
             if algo_status == InferStatus.NEED_INFER:
                 # 推理：提交到模型队列并等待完成，推理失败直接返回，不进行后续处理
+                algo_running_info['infer_start_time'] = time.time()
                 if self.detector.submit_frame(frame):
                     # 等待模型推理完成（最多等待1秒）
                     if frame.model_events[self.detector.model_name].wait(timeout=1.0):
@@ -84,29 +91,30 @@ class BigParticleAlgo:
                 else:
                     self.logger.warning(f"提交帧失败: frame={frame.frame_number}")
                     return
+                algo_running_info['infer_end_time'] = time.time()
                 
-                # TODO 模型推理完成，设置最新的推理结果，进行业务逻辑处理等，设置帧的算法结果
-                self.instances = frame.model_results[self.detector.model_name]
+                # 模型推理完成，设置最新的推理结果，进行业务逻辑处理等，设置帧的算法结果
+                instances: list[Instance] = frame.model_results[self.detector.model_name]   # 未过滤的模型结果
+                self.instances = []
+                for instance in instances:
+                    # TODO 计算粒径，单位为毫米。可能要根据粒径过滤
+                    instance.size = instance.right - instance.left
+                    self.instances.append(instance)
                 frame.algo_results[self.name] = self.instances
             
             # 推理结果处理完立刻渲染，先于其他业务逻辑，以便在编码前完成渲染
             # 有检测结果才获取画布
             if self.instances:
+                algo_running_info['render_start_time'] = time.time()
                 canvas = frame.canvas
-                for instance in self.instances:
-                    # 提取边界框坐标 (x1, y1, x2, y2)
-                    x1, y1, x2, y2 = instance.left, instance.top, instance.right, instance.bottom
-                    # 绘制红色矩形框
-                    cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                self._render(canvas, self.instances)
+                algo_running_info['render_end_time'] = time.time()
 
             if algo_status == InferStatus.NEED_INFER:
-                # TODO 对于推理的帧执行后续的业务逻辑，如保存记录等
+                # 对于推理的帧执行后续的业务逻辑，如保存记录等
                 if self.instances:
-                    # TODO 保存业务记录
-                    # TODO 保存推理记录，不需要每个算法单独保存图片，一帧只需要保存一个原图
-                    # 如果该算法需要保存该帧结果，则设置该帧的 algo_results_for_save
-                    pass
-                pass
+                    # 异步保存大颗粒记录，不阻塞算法线程
+                    get_io_thread_pool().submit(self._save_record, frame)
 
             # 设置算法完成状态
             frame.algo_status[self.name] = InferStatus.DONE
@@ -120,3 +128,61 @@ class BigParticleAlgo:
         finally:
             # 无论成功还是失败，都要 count down
             frame.algo_latch.count_down()
+
+    def _render(self, image, instances: list[Instance]):
+        """
+        渲染帧
+        """
+        # 无渲染对象直接返回
+        if not instances:
+            return
+        
+        for instance in instances:
+            # 提取边界框坐标 (x1, y1, x2, y2)
+            x1, y1, x2, y2 = instance.left, instance.top, instance.right, instance.bottom
+            # 绘制红色矩形框
+            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+
+    def _save_record(self, frame: DecodedFrame):
+        """
+        保存记录
+        
+        Args:
+            frame: 检测帧
+        """
+        try:
+            instances = frame.algo_results[self.name]
+            if not instances:
+                return
+                
+            # 计算粒径范围
+            sizes = [instance.size for instance in instances]
+                
+            min_size = min(sizes)
+            max_size = max(sizes)
+            
+            # 获取原图ID（多算法共享）
+            original_image_id = frame.get_original_image_id()
+            
+            rendered_image_id = None
+            if frame.has_canvas():  # TODO 多算法时，切换为对原图再次渲染
+                file_name = f"{self.name}/stream_{frame.stream_id}_{frame.timestamp}.jpg"
+                rendered_image_id = save_rendered_image(frame.canvas, file_name)
+
+            # 创建记录
+            detected_at = datetime.fromtimestamp(frame.algo_running_info[self.name]['infer_start_time'],
+                                                 tz=timezone.get_current_timezone())
+            record = AlgoBigParticleRecord.objects.create(
+                stream_id=frame.stream_id,
+                stream_name=frame.stream_name,
+                min_size=min_size,
+                max_size=max_size,
+                detected_at=detected_at,
+                original_image_id=original_image_id,
+                rendered_image_id=rendered_image_id
+            )
+            
+            self.logger.info(f"保存大颗粒记录成功: record_id={record.id}")
+            
+        except Exception as e:
+            self.logger.error(f"保存大颗粒记录失败: error={e}")

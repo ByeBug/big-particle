@@ -117,7 +117,8 @@ class RtspDecoder(BaseDecoder):
                 height=frame.shape[0],
                 frame_number=self._frame_count,
                 timestamp=int(time.time() * 1000),  # 使用解码时的当前时间
-                stream_id=self.video_stream.id
+                stream_id=self.video_stream.id,
+                stream_name=self.video_stream.name
             )
         else:
             raise Exception("RTSP流读取失败，可能是网络问题或流断开")

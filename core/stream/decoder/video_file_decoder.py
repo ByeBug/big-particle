@@ -116,7 +116,8 @@ class VideoFileDecoder(BaseDecoder):
                     height=frame.shape[0],
                     frame_number=int(self._cap.get(cv2.CAP_PROP_POS_FRAMES)),
                     timestamp=int(time.time() * 1000),  # 使用解码时的当前时间
-                    stream_id=self.video_stream.id
+                    stream_id=self.video_stream.id,
+                    stream_name=self.video_stream.name
                 )
             else:
                 # 视频播放完毕，重新开始
@@ -130,7 +131,8 @@ class VideoFileDecoder(BaseDecoder):
                         height=frame.shape[0],
                         frame_number=int(self._cap.get(cv2.CAP_PROP_POS_FRAMES)),
                         timestamp=int(time.time() * 1000),  # 使用解码时的当前时间
-                        stream_id=self.video_stream.id
+                        stream_id=self.video_stream.id,
+                        stream_name=self.video_stream.name
                     )
                 
                 return None

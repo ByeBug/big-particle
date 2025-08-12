@@ -146,7 +146,8 @@ class ImageDirDecoder(BaseDecoder):
                 height=image.shape[0],
                 frame_number=current_frame_number,
                 timestamp=int(time.time() * 1000),
-                stream_id=self.video_stream.id
+                stream_id=self.video_stream.id,
+                stream_name=self.video_stream.name
             )
                 
         except Exception as e:

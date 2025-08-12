@@ -317,7 +317,8 @@ class MVSDecoder(BaseDecoder):
                         height=self._stOutFrame.stFrameInfo.nHeight,
                         frame_number=self._stOutFrame.stFrameInfo.nFrameNum,
                         timestamp=int(time.time() * 1000),
-                        stream_id=self.video_stream.id
+                        stream_id=self.video_stream.id,
+                        stream_name=self.video_stream.name
                     )
                 else:
                     raise Exception(f"转换图像失败")

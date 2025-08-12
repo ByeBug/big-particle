@@ -3,7 +3,8 @@
 """
 import logging
 import threading
-from typing import Any, Optional
+from typing import Any, Optional, DefaultDict
+from collections import defaultdict
 import cv2
 import numpy as np
 
@@ -27,6 +28,7 @@ class DecodedFrame:
         frame_number: int,
         timestamp: int,
         stream_id: int,
+        stream_name: str,
     ):
         """
         初始化解码帧
@@ -38,6 +40,7 @@ class DecodedFrame:
             frame_number: 帧号
             timestamp: 毫秒时间戳
             stream_id: 视频流ID（对应 VideoStream 模型的 ID）
+            stream_name: 视频流名称
         """
         self.ocv_image = ocv_image
         self.width = width
@@ -45,7 +48,8 @@ class DecodedFrame:
         self.frame_number = frame_number
         self.timestamp = timestamp
         self.stream_id = stream_id
-        
+        self.stream_name = stream_name
+
         # 自动计算通道数
         if len(ocv_image.shape) == 2:
             # 灰度图：(height, width)
@@ -60,6 +64,8 @@ class DecodedFrame:
         self.algo_status: dict[str, InferStatus] = {}
         # 算法结果字典 {algo_name: Any}
         self.algo_results: dict[str, Any] = {}
+        # 算法运行信息字典 {algo_name: dict}
+        self.algo_running_info: DefaultDict[str, dict] = defaultdict(dict)
         # 模型完成事件字典 {model_name, threading.Event}
         self.model_events: dict[str, threading.Event] = {}
         # 模型结果字典 {model_name, Any}
@@ -71,6 +77,10 @@ class DecodedFrame:
         # 画布相关属性
         self._canvas: Optional[np.ndarray] = None
         self._canvas_lock = threading.Lock()
+        
+        # 原图保存相关
+        self._original_image_id: Optional[int] = None
+        self._original_image_lock = threading.Lock()
     
     @property
     def shape(self) -> tuple:
@@ -125,6 +135,19 @@ class DecodedFrame:
         """
         with self._canvas_lock:
             return self._canvas is not None
+    
+    def get_original_image_id(self) -> Optional[int]:
+        """
+        获取原图ID（线程安全，避免重复保存）
+        
+        Returns:
+            int: 原图OSS对象ID
+        """
+        with self._original_image_lock:
+            if self._original_image_id is None:
+                from .save_utils import save_original_frame
+                self._original_image_id = save_original_frame(self)
+            return self._original_image_id
     
     def save(self, file_path: str) -> bool:
         """

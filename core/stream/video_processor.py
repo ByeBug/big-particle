@@ -198,12 +198,12 @@ class VideoStreamProcessor:
                 
             except Exception as e:
                 # 关闭 decoder 并标记为无效，等待30秒
-                self.logger.error(f"解码异常，30秒后重试: {e}")
+                self.logger.exception(f"解码异常，30秒后重试")
                 self._update_stream_status('abnormal', f'解码异常: {str(e)}')
                 try:
                     self.decoder.close()
                 except Exception as close_error:
-                    self.logger.error(f"关闭解码器时出错: {close_error}")
+                    self.logger.exception(f"关闭解码器时出错")
                 self.decoder = None
                 self.decoder_valid = False
                 if self._stop_event.wait(timeout=30):  # 等待停止事件，最多30秒
