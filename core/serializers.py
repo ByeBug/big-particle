@@ -2,7 +2,7 @@ import re
 import logging
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
-from .models import VideoStream, AlgoBigParticleRecord, OssObject
+from .models import VideoStream, AlgoBigParticleRecord, OssObject, SystemConfig
 
 logger = logging.getLogger(__name__)
 
@@ -279,3 +279,59 @@ class BigParticleStatsQuerySerializer(serializers.Serializer):
             return ids
         except ValueError as e:
             raise serializers.ValidationError(f"流ID格式无效，请使用逗号分隔的整数: {e}")
+
+
+class SystemConfigSerializer(serializers.HyperlinkedModelSerializer):
+    """系统配置序列化器"""
+    
+    class Meta:
+        model = SystemConfig
+        fields = [
+            'url',
+            'id',
+            'config_type',
+            'name', 
+            'description',
+            'config_data',
+            'is_active',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['url', 'id', 'created_at', 'updated_at']
+    
+    def validate(self, data):
+        # 清理字符串字段的前后空白
+        for field in ['config_type', 'name', 'description']:
+            if field in data and isinstance(data[field], str):
+                data[field] = data[field].strip()
+        
+        # 验证必填字段
+        config_type = data.get('config_type')
+        name = data.get('name')
+        
+        if not self.instance:  # 新建时
+            if not config_type:
+                raise serializers.ValidationError("config_type 不能为空")
+            if not name:
+                raise serializers.ValidationError("name 不能为空")
+        else:  # 更新时
+            # 不允许更新 config_type
+            if 'config_type' in data:
+                data.pop('config_type')
+            # 使用实例的 config_type 进行唯一性验证
+            config_type = self.instance.config_type
+        
+        # 验证唯一性约束 (config_type + name)
+        if config_type and name:
+            query = SystemConfig.objects.filter(
+                config_type=config_type, 
+                name=name
+            )
+            if self.instance:  # 更新时排除自己
+                query = query.exclude(id=self.instance.id)
+            if query.exists():
+                raise serializers.ValidationError(
+                    f"配置类型 '{config_type}' 下已存在名称为 '{name}' 的配置"
+                )
+        
+        return data

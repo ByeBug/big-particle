@@ -26,12 +26,47 @@ class CoreConfig(AppConfig):
         from .models import VideoStream
         from .stream.video_processor import create_processor, start_cleanup_thread
         
+        # 初始化系统配置
+        self._init_default_configs()
+        
         # TODO 服务启动时加载并启动所有启用的视频流
 
         try:
             start_cleanup_thread()
         except Exception as e:
             logger.error(f"启动清理线程失败: {e}")
+    
+    def _init_default_configs(self):
+        """初始化默认系统配置"""
+        try:
+            from .models import SystemConfig
+            
+            # 创建大颗粒算法配置
+            _, created = SystemConfig.objects.get_or_create(
+                config_type='algorithm',
+                name='big_particle',
+                defaults={
+                    'description': '大颗粒检测算法配置',
+                    'config_data': {
+                        'threshold': 0.5,       # 模型阈值
+                        'size_level': [28, 32, 50],     # 粒径等级
+                        'alarm_threshold': {            # 不同等级的告警阈值
+                            '28': {'warning': 30, 'error': 50},
+                            '32': {'warning': 10, 'error': 20},
+                            '50': {'warning': 1, 'error': 10},
+                        }
+                    },
+                    'is_active': True
+                }
+            )
+            
+            if created:
+                logger.info("已创建大颗粒算法默认配置")
+            else:
+                logger.debug("大颗粒算法配置已存在")
+                
+        except:
+            logger.exception(f"初始化默认配置失败")
     
     def _register_signal_handlers(self):
         """注册信号处理器"""

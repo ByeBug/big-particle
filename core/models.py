@@ -213,3 +213,75 @@ class OssObject(models.Model):
     def get_url(self):
         """获取文件访问URL"""
         return f"/storage/oss/{self.file_path}"
+
+
+class SystemConfig(models.Model):
+    """
+    系统配置表
+    
+    用于存储各种系统配置，支持不同类型的配置。
+    """
+    
+    config_type = models.CharField(
+        max_length=50,
+        help_text='配置类型'
+    )
+    
+    name = models.CharField(
+        max_length=100,
+        help_text='配置名称'
+    )
+    
+    description = models.TextField(
+        blank=True,
+        help_text='配置说明'
+    )
+    
+    config_data = models.JSONField(
+        default=dict,
+        help_text='配置数据（JSON格式）'
+    )
+    
+    is_active = models.BooleanField(
+        default=True,
+        help_text='是否启用'
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='创建时间'
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text='更新时间'
+    )
+    
+    class Meta:
+        db_table = 'core_system_config'
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['config_type', 'name'],
+                name='unique_config_type_name'
+            )
+        ]
+        
+    def __str__(self):
+        return f'{self.config_type} - {self.name}'
+    
+    def get_config_value(self, key, default=None):
+        """获取配置中的特定值"""
+        return self.config_data.get(key, default)
+    
+    def set_config_value(self, key, value):
+        """设置配置中的特定值"""
+        self.config_data[key] = value
+        
+    @classmethod
+    def get_config_by_type(cls, config_type, name=None):
+        """根据类型获取配置"""
+        query = cls.objects.filter(config_type=config_type, is_active=True)
+        if name:
+            query = query.filter(name=name)
+        return query

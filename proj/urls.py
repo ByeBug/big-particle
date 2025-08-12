@@ -25,6 +25,7 @@ router.register(r'users', views.UserViewSet)
 router.register(r'groups', views.GroupViewSet)
 router.register(r'videostreams', views.VideoStreamViewSet)
 router.register(r'big-particle-records', views.BigParticleRecordViewSet)
+router.register(r'system-configs', views.SystemConfigViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

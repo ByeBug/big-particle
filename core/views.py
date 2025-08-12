@@ -11,11 +11,11 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from datetime import timedelta
 
-from .models import VideoStream, AlgoBigParticleRecord
+from .models import VideoStream, AlgoBigParticleRecord, SystemConfig
 from .serializers import (
     UserSerializer, GroupSerializer, VideoStreamSerializer,
     BigParticleRecordQuerySerializer, BigParticleRecordResponseSerializer,
-    BigParticleStatsQuerySerializer
+    BigParticleStatsQuerySerializer, SystemConfigSerializer
 )
 from .stream.video_processor import create_processor, remove_processor, get_processor
 
@@ -318,3 +318,35 @@ class BigParticleStatsAPIView(APIView):
             }
         
         return Response(response_data)
+
+
+class SystemConfigViewSet(viewsets.ModelViewSet):
+    """系统配置视图集"""
+    
+    queryset = SystemConfig.objects.all()
+    serializer_class = SystemConfigSerializer
+    
+    def get_queryset(self):
+        """根据查询参数过滤配置"""
+        queryset = self.queryset
+        
+        # 根据配置类型过滤
+        config_type = self.request.query_params.get('config_type')
+        if config_type:
+            queryset = queryset.filter(config_type=config_type)
+        
+        # 根据是否启用过滤
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            if is_active.lower() in ['true', '1']:
+                queryset = queryset.filter(is_active=True)
+            elif is_active.lower() in ['false', '0']:
+                queryset = queryset.filter(is_active=False)
+        
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def types(self, request):
+        """获取所有配置类型"""
+        types = SystemConfig.objects.values_list('config_type', flat=True).distinct()
+        return Response(list(types))
