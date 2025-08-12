@@ -146,11 +146,9 @@ class AlgoBigParticleRecord(models.Model):
         db_table = 'algo_big_particle_record'
         ordering = ['-detected_at']
         indexes = [
-            models.Index(fields=['stream_id', 'detected_at']),
-            models.Index(fields=['stream_name', 'detected_at']),
-            models.Index(fields=['detected_at']),
-            models.Index(fields=['max_size']),  # 按最大粒径查询
-            models.Index(fields=['detected_at', 'max_size']),  # 时间+粒径组合查询
+            models.Index(fields=['detected_at', 'stream_id']),
+            models.Index(fields=['detected_at', 'stream_name']),
+            models.Index(fields=['detected_at', 'max_size']),
         ]
         
     def __str__(self):

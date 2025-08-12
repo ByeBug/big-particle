@@ -1,14 +1,22 @@
 import logging
 import cv2
 from django.contrib.auth.models import User, Group
+from django.db import connection
 from django.http import HttpResponse
+from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from rest_framework.views import APIView
+from datetime import timedelta
 
 from .models import VideoStream, AlgoBigParticleRecord
-from .serializers import UserSerializer, GroupSerializer, VideoStreamSerializer, BigParticleRecordQuerySerializer, BigParticleRecordResponseSerializer
+from .serializers import (
+    UserSerializer, GroupSerializer, VideoStreamSerializer,
+    BigParticleRecordQuerySerializer, BigParticleRecordResponseSerializer,
+    BigParticleStatsQuerySerializer
+)
 from .stream.video_processor import create_processor, remove_processor, get_processor
 
 logger = logging.getLogger(__name__)
@@ -216,3 +224,97 @@ class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(max_size__lte=max_max_size)
         
         return queryset
+
+BIG_PARTICLE_SIZE_LEVELS = [28, 32, 50]
+
+class BigParticleStatsAPIView(APIView):
+    """大颗粒统计API视图"""
+    
+    def get(self, request):
+        """获取大颗粒统计数据"""
+        # 验证查询参数
+        query_serializer = BigParticleStatsQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            raise ValidationError(query_serializer.errors)
+        
+        stream_ids = query_serializer.validated_data['stream_ids']
+        
+        # 计算时间边界
+        now = timezone.now()
+        thirty_seconds_ago = now - timedelta(seconds=30)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        
+        # 构建SQL参数
+        placeholders = ','.join(['%s'] * len(stream_ids))
+        
+        # 根据等级动态构建CASE WHEN子句
+        case_when_clauses = []
+        for i, level in enumerate(BIG_PARTICLE_SIZE_LEVELS):
+            if i == len(BIG_PARTICLE_SIZE_LEVELS) - 1:
+                # 最后一个等级：>=该等级
+                case_when_clauses.append(f"COUNT(CASE WHEN max_size >= {level} THEN 1 END) AS count_{level}")
+            else:
+                # 中间等级：>=当前等级且<下一等级
+                next_level = BIG_PARTICLE_SIZE_LEVELS[i + 1]
+                case_when_clauses.append(f"COUNT(CASE WHEN max_size >= {level} AND max_size < {next_level} THEN 1 END) AS count_{level}")
+        
+        case_when_sql = ",\n                    ".join(case_when_clauses)
+        
+        # 执行两个 SQL 查询
+        with connection.cursor() as cursor:
+            # 查询1: 30秒内统计
+            recent_sql = f"""
+                SELECT 
+                    stream_id,
+                    {case_when_sql}
+                FROM algo_big_particle_record
+                WHERE detected_at >= %s AND stream_id IN ({placeholders})
+                GROUP BY stream_id
+            """
+            
+            cursor.execute(recent_sql, [thirty_seconds_ago] + stream_ids)
+            recent_rows = cursor.fetchall()
+            
+            # 查询2: 当天统计
+            today_sql = f"""
+                SELECT 
+                    stream_id,
+                    {case_when_sql}
+                FROM algo_big_particle_record
+                WHERE detected_at >= %s AND detected_at <= %s AND stream_id IN ({placeholders})
+                GROUP BY stream_id
+            """
+            
+            cursor.execute(today_sql, [today_start, today_end] + stream_ids)
+            today_rows = cursor.fetchall()
+        
+        # 构建结果字典
+        recent_results = {}
+        for row in recent_rows:
+            stream_id = row[0]
+            level_counts = {}
+            for i, level in enumerate(BIG_PARTICLE_SIZE_LEVELS):
+                level_counts[str(level)] = row[i + 1]  # row[0]是stream_id，从row[1]开始是统计数据
+            recent_results[stream_id] = level_counts
+        
+        today_results = {}
+        for row in today_rows:
+            stream_id = row[0]
+            level_counts = {}
+            for i, level in enumerate(BIG_PARTICLE_SIZE_LEVELS):
+                level_counts[str(level)] = row[i + 1]
+            today_results[stream_id] = level_counts
+        
+        # 构建默认的0值字典
+        default_counts = {str(level): 0 for level in BIG_PARTICLE_SIZE_LEVELS}
+        
+        # 构建响应数据
+        response_data = {}
+        for stream_id in stream_ids:
+            response_data[str(stream_id)] = {
+                "recent_30s": recent_results.get(stream_id, default_counts.copy()),
+                "today": today_results.get(stream_id, default_counts.copy())
+            }
+        
+        return Response(response_data)

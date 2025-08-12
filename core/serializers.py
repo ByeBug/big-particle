@@ -251,3 +251,31 @@ class BigParticleRecordResponseSerializer(serializers.ModelSerializer):
                 logger.warning(f"渲染图OSS对象不存在: record_id={obj.id}, oss_id={obj.rendered_image_id}")
                 return None
         return None
+
+
+class BigParticleStatsQuerySerializer(serializers.Serializer):
+    """大颗粒统计查询参数序列化器"""
+    
+    stream_ids = serializers.CharField(
+        required=True,
+        help_text='流ID列表（逗号分隔，如: 1,2,3）'
+    )
+    
+    def validate_stream_ids(self, value):
+        """验证并解析流ID列表"""
+        if not value:
+            raise serializers.ValidationError("stream_ids 不能为空")
+            
+        # 去除首尾空格
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("stream_ids 不能为空")
+            
+        try:
+            # 分割逗号分隔的字符串并转换为整数列表
+            ids = [int(id_str.strip()) for id_str in value.split(',') if id_str.strip()]
+            if not ids:
+                raise serializers.ValidationError("stream_ids 不能为空")
+            return ids
+        except ValueError as e:
+            raise serializers.ValidationError(f"流ID格式无效，请使用逗号分隔的整数: {e}")
