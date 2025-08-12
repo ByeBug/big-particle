@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 class PaddleDetector:
     '''Paddle 检测模型'''
     
-    def __init__(self, model_path: str, batch_size: int):
+    def __init__(self, model_path: str, batch_size: int, threshold: float = 0.5):
         '''初始化 Paddle 检测模型'''
         self.model_path = os.path.normpath(model_path)
         self.model_name = self.model_path.split('/')[-1]
         self.batch_size = batch_size
-        self.threshold = 0.5
+        self.threshold = threshold
         
         # 流队列字典 {stream_id: Queue}
         self.stream_queues: Dict[int, Queue] = defaultdict(lambda: Queue(maxsize=10))

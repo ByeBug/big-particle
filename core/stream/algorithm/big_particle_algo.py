@@ -36,6 +36,7 @@ class BigParticleAlgo:
         self.stream_id = stream_id
         self.name = algo_config['name']
         self.algo_config = algo_config or {}
+        self.size_threshold = self.algo_config['size_threshold']
         # 设置带 StreamID 的日志器
         self.logger = StreamLoggerAdapter(logger, {'stream_id': stream_id})
         
@@ -43,7 +44,8 @@ class BigParticleAlgo:
         self.detector: PaddleDetector = ModelManager.get_model(
             model_class=PaddleDetector,
             model_path=self.algo_config['model_path'],
-            batch_size=self.algo_config['batch_size']
+            batch_size=self.algo_config['batch_size'],
+            threshold=self.algo_config['threshold'],
         )
 
         self.instances: list[Instance] = []
@@ -97,8 +99,11 @@ class BigParticleAlgo:
                 instances: list[Instance] = frame.model_results[self.detector.model_name]   # 未过滤的模型结果
                 self.instances = []
                 for instance in instances:
-                    # TODO 计算粒径，单位为毫米。可能要根据粒径过滤
+                    # TODO 计算粒径，单位为毫米
                     instance.size = instance.right - instance.left
+                    # 忽略小于尺寸阈值的颗粒
+                    if instance.size < self.size_threshold:
+                        continue
                     self.instances.append(instance)
                 frame.algo_results[self.name] = self.instances
             

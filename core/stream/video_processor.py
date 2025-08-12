@@ -39,7 +39,9 @@ class VideoStreamProcessor:
             'enabled': True,
             'infer_interval_ms': 100,  # 推理间隔100ms
             'model_path': '/home/zhaosiyuan/dev/big-particle/backend/paddle_samples/models/big_particle_trt',
-            'batch_size': 8
+            'batch_size': 8,
+            'threshold': 0.5,      # 模型阈值
+            'size_threshold': 28,  # 粒径阈值（毫米）
         }
     }
     
