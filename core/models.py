@@ -211,3 +211,7 @@ class OssObject(models.Model):
     def is_deleted(self):
         """判断是否已删除"""
         return self.deleted_at is not None
+    
+    def get_url(self):
+        """获取文件访问URL"""
+        return f"/storage/oss/{self.file_path}"

@@ -1,7 +1,10 @@
 import re
+import logging
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
-from .models import VideoStream
+from .models import VideoStream, AlgoBigParticleRecord, OssObject
+
+logger = logging.getLogger(__name__)
 
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
@@ -148,3 +151,103 @@ class VideoStreamSerializer(serializers.HyperlinkedModelSerializer):
             data.pop('type')
         
         return data
+
+
+class BigParticleRecordQuerySerializer(serializers.Serializer):
+    """大颗粒记录查询参数序列化器"""
+    
+    stream_ids = serializers.CharField(
+        required=False,
+        help_text='流ID列表（逗号分隔，如: 1,2,3 或单个值）'
+    )
+    
+    stream_name = serializers.CharField(
+        max_length=100,
+        required=False,
+        help_text='流名称（模糊匹配）'
+    )
+    
+    start_time = serializers.DateTimeField(
+        required=False,
+        help_text='开始时间'
+    )
+    
+    end_time = serializers.DateTimeField(
+        required=False,
+        help_text='结束时间'
+    )
+    
+    min_max_size = serializers.IntegerField(
+        required=False,
+        help_text='最大粒径下限（毫米）'
+    )
+    
+    max_max_size = serializers.IntegerField(
+        required=False,
+        help_text='最大粒径上限（毫米）'
+    )
+    
+    def validate_stream_ids(self, value):
+        """验证并解析流ID列表"""
+        if not value:
+            return []
+            
+        try:
+            # 分割逗号分隔的字符串并转换为整数列表
+            ids = [int(id_str.strip()) for id_str in value.split(',') if id_str.strip()]
+            return ids
+        except ValueError as e:
+            raise serializers.ValidationError(f"流ID格式无效，请使用逗号分隔的整数: {e}")
+    
+    def validate_stream_name(self, value):
+        """验证流名称"""
+        if value:
+            return value.strip()
+        return value
+    
+    def validate_end_time(self, value):
+        if value:
+            return value.replace(microsecond=999999)
+        return value
+
+
+class BigParticleRecordResponseSerializer(serializers.ModelSerializer):
+    """大颗粒记录响应序列化器"""
+    
+    original_image_url = serializers.SerializerMethodField()
+    rendered_image_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AlgoBigParticleRecord
+        fields = [
+            'id',
+            'stream_id',
+            'stream_name',
+            'min_size',
+            'max_size',
+            'detected_at',
+            'original_image_url',
+            'rendered_image_url'
+        ]
+    
+    def get_original_image_url(self, obj):
+        """获取原图URL"""
+        if obj.original_image_id:
+            try:
+                oss_object = OssObject.objects.get(id=obj.original_image_id)
+                return oss_object.get_url()
+            except OssObject.DoesNotExist:
+                logger.warning(f"原图OSS对象不存在: record_id={obj.id}, oss_id={obj.original_image_id}")
+                return None
+        return None
+    
+    def get_rendered_image_url(self, obj):
+        """获取渲染图URL"""
+        if obj.rendered_image_id:
+            try:
+                oss_object = OssObject.objects.get(id=obj.rendered_image_id)
+                return oss_object.get_url()
+            except OssObject.DoesNotExist:
+                logger.warning(f"渲染图OSS对象不存在: record_id={obj.id}, oss_id={obj.rendered_image_id}")
+                return None
+        return None

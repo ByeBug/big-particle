@@ -5,9 +5,10 @@ from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
-from .models import VideoStream
-from .serializers import UserSerializer, GroupSerializer, VideoStreamSerializer
+from .models import VideoStream, AlgoBigParticleRecord
+from .serializers import UserSerializer, GroupSerializer, VideoStreamSerializer, BigParticleRecordQuerySerializer, BigParticleRecordResponseSerializer
 from .stream.video_processor import create_processor, remove_processor, get_processor
 
 logger = logging.getLogger(__name__)
@@ -168,3 +169,50 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
                 {"error": f"获取最新帧失败: {str(e)}"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
+    """大颗粒记录查询视图集"""
+    
+    queryset = AlgoBigParticleRecord.objects.all()
+    serializer_class = BigParticleRecordResponseSerializer
+    
+    def get_queryset(self):
+        """根据查询参数过滤记录"""
+        # 获取查询参数
+        query_serializer = BigParticleRecordQuerySerializer(data=self.request.query_params)
+        if not query_serializer.is_valid():
+            raise ValidationError(query_serializer.errors)
+        
+        validated_data = query_serializer.validated_data
+        queryset = self.queryset
+        
+        # 根据流ID过滤
+        stream_ids = validated_data.get('stream_ids')
+        if stream_ids:
+            queryset = queryset.filter(stream_id__in=stream_ids)
+        
+        # 根据流名称模糊匹配过滤
+        stream_name = validated_data.get('stream_name')
+        if stream_name:
+            queryset = queryset.filter(stream_name__icontains=stream_name)
+        
+        # 根据时间范围过滤
+        start_time = validated_data.get('start_time')
+        if start_time:
+            queryset = queryset.filter(detected_at__gte=start_time)
+            
+        end_time = validated_data.get('end_time')
+        if end_time:
+            queryset = queryset.filter(detected_at__lte=end_time)
+        
+        # 根据粒径范围过滤（基于最大粒径）
+        min_max_size = validated_data.get('min_max_size')
+        if min_max_size is not None:
+            queryset = queryset.filter(max_size__gte=min_max_size)
+            
+        max_max_size = validated_data.get('max_max_size')
+        if max_max_size is not None:
+            queryset = queryset.filter(max_size__lte=max_max_size)
+        
+        return queryset
