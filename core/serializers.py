@@ -334,4 +334,51 @@ class SystemConfigSerializer(serializers.HyperlinkedModelSerializer):
                     f"配置类型 '{config_type}' 下已存在名称为 '{name}' 的配置"
                 )
         
+        # 验证 config_data
+        config_data = data.get('config_data')
+        if config_data:
+            if not isinstance(config_data, dict):
+                raise serializers.ValidationError("config_data 必须是字典")
+            
+            threshold = config_data.get('threshold')
+            if threshold is None:
+                raise serializers.ValidationError("config_data 必须包含 threshold 字段")
+            if not isinstance(threshold, float):
+                raise serializers.ValidationError("threshold 必须是浮点数")
+            if threshold < 0.5 or threshold > 1:
+                raise serializers.ValidationError("threshold 必须在 0.5 到 1 之间")
+
+            if self.instance.name == 'big_particle':
+                alarm_threshold = config_data.get('alarm_threshold')
+                if alarm_threshold is None:
+                    raise serializers.ValidationError("config_data 必须包含 alarm_threshold 字段")
+                if not isinstance(alarm_threshold, dict):
+                    raise serializers.ValidationError("alarm_threshold 必须是字典")
+                if len(alarm_threshold) < 1 or len(alarm_threshold) > 5:
+                    raise serializers.ValidationError("alarm_threshold 必须包含 1-5 个等级")
+                for key, value in alarm_threshold.items():
+                    try:
+                        size = int(key)
+                    except:
+                        raise serializers.ValidationError(f"alarm_threshold 中的 key 必须是整数: {key}")
+                    if size < 0:
+                        raise serializers.ValidationError(f"alarm_threshold 中的 key 必须大于 0: {key}")
+                    
+                    if not isinstance(value, dict):
+                        raise serializers.ValidationError(f"alarm_threshold 中的 value 必须是字典: {value}")
+                    if not 'warning' in value or not 'error' in value:
+                        raise serializers.ValidationError(f"alarm_threshold 中的 value 必须包含 warning 和 error 字段: {value}")
+                    warning_threshold = value.get('warning')
+                    error_threshold = value.get('error')
+                    if not isinstance(warning_threshold, int):
+                        raise serializers.ValidationError(f"alarm_threshold 中的 warning 必须是整数: {warning_threshold}")
+                    if not isinstance(error_threshold, int):
+                        raise serializers.ValidationError(f"alarm_threshold 中的 error 必须是整数: {error_threshold}")
+                    if warning_threshold <= 0:
+                        raise serializers.ValidationError(f"alarm_threshold 中的 warning 必须大于 0: {warning_threshold}")
+                    if error_threshold <= 0:
+                        raise serializers.ValidationError(f"alarm_threshold 中的 error 必须大于 0: {error_threshold}")
+                    if warning_threshold >= error_threshold:
+                        raise serializers.ValidationError(f"alarm_threshold 中的 warning 必须小于 error: {warning_threshold} >= {error_threshold}")
+
         return data

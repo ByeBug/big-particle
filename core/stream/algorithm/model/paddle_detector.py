@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 class PaddleDetector:
     '''Paddle 检测模型'''
     
-    def __init__(self, model_path: str, batch_size: int, threshold: float = 0.5):
+    def __init__(self, model_path: str, max_batch_size: int):
         '''初始化 Paddle 检测模型'''
         self.model_path = os.path.normpath(model_path)
         self.model_name = self.model_path.split('/')[-1]
-        self.batch_size = batch_size
-        self.threshold = threshold
+        self.max_batch_size = max_batch_size
+        self.threshold = 0.5    # 模型阈值固定为 0.5
         
         # 流队列字典 {stream_id: Queue}
         self.stream_queues: Dict[int, Queue] = defaultdict(lambda: Queue(maxsize=10))
@@ -94,7 +94,7 @@ class PaddleDetector:
         # 启动推理线程
         self.start_infer_thread()
 
-        logger.info(f"已初始化 PaddleDetector: {self.model_name}, batch_size={self.batch_size}")
+        logger.info(f"已初始化 PaddleDetector: {self.model_name}, max_batch_size={self.max_batch_size}")
     
     def start_infer_thread(self):
         """启动推理线程"""
@@ -162,9 +162,9 @@ class PaddleDetector:
                     time.sleep(0.01)  # 没有帧时休眠 10ms
                     continue
                 
-                # 按 batch_size 分批处理
-                for i in range(0, len(frames_to_process), self.batch_size):
-                    batch_frames = frames_to_process[i:i + self.batch_size]
+                # 按 max_batch_size 分批处理
+                for i in range(0, len(frames_to_process), self.max_batch_size):
+                    batch_frames = frames_to_process[i:i + self.max_batch_size]
                     self.process_batch(batch_frames)
                 
             except Exception as e:

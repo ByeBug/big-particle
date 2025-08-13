@@ -33,15 +33,13 @@ class VideoStreamProcessor:
     SAVE_FRAMES_DIR = "/data/big-particle-data/storage/saved_frames"
     SAFE_FREE_SPACE_GB = 100  # 安全剩余空间阈值（GB）
     
-    # 算法配置
-    ALGORITHM_CONFIGS = {
+    # 算法静态配置
+    ALGORITHM_STATIC_CONFIGS = {
         'big_particle': {
             'enabled': True,
             'infer_interval_ms': 100,  # 推理间隔100ms
             'model_path': '/home/zhaosiyuan/dev/big-particle/backend/paddle_samples/models/big_particle_trt',
-            'batch_size': 8,
-            'threshold': 0.5,      # 模型阈值
-            'size_threshold': 28,  # 粒径阈值（毫米）
+            'max_batch_size': 8,
         }
     }
     
@@ -220,23 +218,85 @@ class VideoStreamProcessor:
             self.logger.error(f"关闭解码器时出错: {e}")
         self.logger.info("解码线程退出")
     
+    def _merge_algorithm_config(self, algo_name, static_config, dynamic_config):
+        """
+        合并算法静态配置和动态配置
+        
+        静态配置：不可变的系统级配置（如模型路径、批处理大小等）
+        动态配置：用户可修改的业务配置（如阈值、告警参数等）
+        合并规则：相同配置项以动态配置为准，不同配置项进行合并
+        """
+        # 以静态配置为基础
+        merged_config = static_config.copy()
+
+        # 合并动态配置，相同配置项以动态配置为准
+        for key, value in dynamic_config.items():
+            merged_config[key] = value
+            
+        return merged_config
+    
     def _init_algorithms(self):
         """初始化算法实例"""
-        for algo_name, algo_config in self.ALGORITHM_CONFIGS.items():
-            if algo_config.get('enabled', False):
+        for algo_name, algo_static_config in self.ALGORITHM_STATIC_CONFIGS.items():
+            if algo_static_config.get('enabled', False):
                 try:
                     self.logger.info(f"初始化算法: {algo_name}")
-                    algo_config['name'] = algo_name
+                    algo_static_config['name'] = algo_name
+                    
+                    from core.models import SystemConfig
+                    system_config = SystemConfig.objects.filter(
+                        config_type='algorithm',
+                        name=algo_name,
+                        is_active=True
+                    ).first()
+
+                    if not system_config or not system_config.config_data:
+                        raise ValueError(f"未找到算法 {algo_name} 的动态配置")
+                    
+                    dynamic_config = system_config.config_data
+                    algo_config = self._merge_algorithm_config(algo_name, algo_static_config, dynamic_config)
+                    
                     if algo_name == 'big_particle':
                         algo_instance = BigParticleAlgo(self.video_stream.id, algo_config)
-                        self.algorithms.append(algo_instance)
+                    else:
+                        raise ValueError(f"不支持的算法: {algo_name}")
+                    
+                    self.algorithms.append(algo_instance)
                     # 初始化下次推理时间为 -1
                     self.next_infer_times[algo_name] = -1
-                except Exception as e:
-                    self.logger.error(f"初始化算法 {algo_name} 失败: {e}")
+                except:
+                    self.logger.exception(f"初始化算法 {algo_name} 失败")
                     continue
         
         self.logger.info(f"共初始化 {len(self.algorithms)} 个算法")
+
+    def update_algorithm_config(self, algo_name, dynamic_config):
+        """更新指定算法的配置"""
+        try:
+            # 查找对应的算法实例
+            algo_instance = None
+            for algo in self.algorithms:
+                if algo.name == algo_name:
+                    algo_instance = algo
+                    break
+            
+            if not algo_instance:
+                self.logger.debug(f"流中未找到算法 {algo_name}，跳过配置更新")
+                return
+            
+            # 获取静态配置并合并
+            static_config = self.ALGORITHM_STATIC_CONFIGS.get(algo_name)
+            if not static_config:
+                self.logger.warning(f"未找到算法 {algo_name} 的静态配置")
+                return
+            
+            merged_config = self._merge_algorithm_config(algo_name, static_config, dynamic_config)
+            
+            # 调用算法实例的配置更新方法
+            algo_instance.update_config(merged_config)
+                
+        except:
+            self.logger.exception(f"更新算法 {algo_name} 配置失败")
     
     def _init_decoder(self):
         """初始化 decoder：创建并打开"""
@@ -275,7 +335,7 @@ class VideoStreamProcessor:
                 if frame_timestamp >= next_infer_time - 5 :
                     # 需要推理
                     frame.algo_status[algo_name] = InferStatus.NEED_INFER
-                    infer_interval = self.ALGORITHM_CONFIGS[algo_name]['infer_interval_ms']
+                    infer_interval = self.ALGORITHM_STATIC_CONFIGS[algo_name]['infer_interval_ms']
                     if next_infer_time == -1:
                         # 第一次推理，以帧时间戳为基础
                         self.next_infer_times[algo_name] = frame_timestamp + infer_interval

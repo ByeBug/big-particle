@@ -2,6 +2,9 @@ import signal
 import sys
 import os
 import logging
+import threading
+import time
+
 from django.apps import AppConfig
 
 
@@ -22,20 +25,24 @@ class CoreConfig(AppConfig):
         # 注册信号处理器，确保 Django 关闭时清理资源
         self._register_signal_handlers()
         
-        # 导入模型和处理器
-        from .models import VideoStream
-        from .stream.video_processor import create_processor, start_cleanup_thread
+        # 导入并注册 Django 信号
+        from . import signals
         
-        # 初始化系统配置
-        self._init_default_configs()
-        
-        # TODO 服务启动时加载并启动所有启用的视频流
+        # 启动初始化线程
+        threading.Thread(target=self._delay_init, name='delay_init').start()
 
+        from .stream.video_processor import start_cleanup_thread
         try:
             start_cleanup_thread()
         except Exception as e:
             logger.error(f"启动清理线程失败: {e}")
     
+    def _delay_init(self):
+        """延迟初始化，避免在 AppConfig.ready() 中访问数据库"""
+        time.sleep(3)
+        self._init_default_configs()
+        # TODO 服务启动时加载并启动所有启用的视频流
+
     def _init_default_configs(self):
         """初始化默认系统配置"""
         try:
@@ -49,7 +56,6 @@ class CoreConfig(AppConfig):
                     'description': '大颗粒检测算法配置',
                     'config_data': {
                         'threshold': 0.5,       # 模型阈值
-                        'size_level': [28, 32, 50],     # 粒径等级
                         'alarm_threshold': {            # 不同等级的告警阈值
                             '28': {'warning': 30, 'error': 50},
                             '32': {'warning': 10, 'error': 20},

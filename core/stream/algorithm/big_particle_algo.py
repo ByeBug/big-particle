@@ -36,7 +36,8 @@ class BigParticleAlgo:
         self.stream_id = stream_id
         self.name = algo_config['name']
         self.algo_config = algo_config or {}
-        self.size_threshold = self.algo_config['size_threshold']
+        self.threshold = self.algo_config['threshold']
+        self.size_threshold = sorted(self.algo_config['alarm_threshold'].keys())[0]
         # 设置带 StreamID 的日志器
         self.logger = StreamLoggerAdapter(logger, {'stream_id': stream_id})
         
@@ -44,13 +45,24 @@ class BigParticleAlgo:
         self.detector: PaddleDetector = ModelManager.get_model(
             model_class=PaddleDetector,
             model_path=self.algo_config['model_path'],
-            batch_size=self.algo_config['batch_size'],
-            threshold=self.algo_config['threshold'],
+            max_batch_size=self.algo_config['max_batch_size'],
         )
 
         self.instances: list[Instance] = []
 
         self.logger.info(f"已初始化算法实例: {self.name}")
+    
+    def update_config(self, algo_config: dict):
+        """
+        更新算法配置
+        """
+        try:
+            self.algo_config = algo_config
+            self.threshold = self.algo_config['threshold']
+            self.size_threshold = sorted(self.algo_config['alarm_threshold'].keys())[0]
+            self.logger.info(f"算法 {self.name} 已更新配置")
+        except:
+            self.logger.exception(f"算法 {self.name} 更新配置失败")
     
     def submit(self, frame: DecodedFrame) -> Future:
         """
@@ -99,6 +111,8 @@ class BigParticleAlgo:
                 instances: list[Instance] = frame.model_results[self.detector.model_name]   # 未过滤的模型结果
                 self.instances = []
                 for instance in instances:
+                    if instance.score < self.threshold:
+                        continue
                     # TODO 计算粒径，单位为毫米
                     instance.size = instance.right - instance.left
                     # 忽略小于尺寸阈值的颗粒
