@@ -225,10 +225,22 @@ class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
         
         return queryset
 
-BIG_PARTICLE_SIZE_LEVELS = [28, 32, 50]
-
 class BigParticleStatsAPIView(APIView):
     """大颗粒统计API视图"""
+    
+    def _get_size_levels(self):
+        """从系统配置获取粒径等级"""
+
+        big_particle_config = SystemConfig.objects.filter(
+            config_type='algorithm',
+            name='big_particle',
+            is_active=True
+        ).first()
+        
+        alarm_threshold = big_particle_config.config_data['alarm_threshold']
+        # 从 alarm_threshold 的 key 获取粒径等级，并排序
+        size_levels = sorted([int(k) for k in alarm_threshold.keys()])
+        return size_levels
     
     def get(self, request):
         """获取大颗粒统计数据"""
@@ -238,6 +250,9 @@ class BigParticleStatsAPIView(APIView):
             raise ValidationError(query_serializer.errors)
         
         stream_ids = query_serializer.validated_data['stream_ids']
+        
+        # 获取动态粒径等级
+        size_levels = self._get_size_levels()
         
         # 计算时间边界
         now = timezone.now()
@@ -250,13 +265,13 @@ class BigParticleStatsAPIView(APIView):
         
         # 根据等级动态构建CASE WHEN子句
         case_when_clauses = []
-        for i, level in enumerate(BIG_PARTICLE_SIZE_LEVELS):
-            if i == len(BIG_PARTICLE_SIZE_LEVELS) - 1:
+        for i, level in enumerate(size_levels):
+            if i == len(size_levels) - 1:
                 # 最后一个等级：>=该等级
                 case_when_clauses.append(f"COUNT(CASE WHEN max_size >= {level} THEN 1 END) AS count_{level}")
             else:
                 # 中间等级：>=当前等级且<下一等级
-                next_level = BIG_PARTICLE_SIZE_LEVELS[i + 1]
+                next_level = size_levels[i + 1]
                 case_when_clauses.append(f"COUNT(CASE WHEN max_size >= {level} AND max_size < {next_level} THEN 1 END) AS count_{level}")
         
         case_when_sql = ",\n                    ".join(case_when_clauses)
@@ -294,7 +309,7 @@ class BigParticleStatsAPIView(APIView):
         for row in recent_rows:
             stream_id = row[0]
             level_counts = {}
-            for i, level in enumerate(BIG_PARTICLE_SIZE_LEVELS):
+            for i, level in enumerate(size_levels):
                 level_counts[str(level)] = row[i + 1]  # row[0]是stream_id，从row[1]开始是统计数据
             recent_results[stream_id] = level_counts
         
@@ -302,12 +317,12 @@ class BigParticleStatsAPIView(APIView):
         for row in today_rows:
             stream_id = row[0]
             level_counts = {}
-            for i, level in enumerate(BIG_PARTICLE_SIZE_LEVELS):
+            for i, level in enumerate(size_levels):
                 level_counts[str(level)] = row[i + 1]
             today_results[stream_id] = level_counts
         
         # 构建默认的0值字典
-        default_counts = {str(level): 0 for level in BIG_PARTICLE_SIZE_LEVELS}
+        default_counts = {str(level): 0 for level in size_levels}
         
         # 构建响应数据
         response_data = {}
