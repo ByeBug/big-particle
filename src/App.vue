@@ -1,86 +1,59 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import GlobalAside from './components/GlobalAside.vue'
+import GlobalHeader from './components/GlobalHeader.vue'
+
+const router = useRouter()
+
+// 计算需要 keep-alive 的组件名称
+const keepAliveNames = computed(() => {
+  const names = router
+    .getRoutes()
+    .filter((route) => route.meta?.keepAlive === true)
+    .map((route) => {
+      const component = route.components?.default
+      // @ts-expect-error __name is Vue internal property
+      const componentName = component?.name || component?.__name
+      return componentName
+    })
+    .filter(Boolean)
+
+  console.log('最终 KeepAlive 列表:', names)
+  return names
+})
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
+  <el-container class="app-container">
+    <el-header>
+      <GlobalHeader />
+    </el-header>
 
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
-
-      <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
-      </nav>
-      <el-button type="primary">Button</el-button>
-    </div>
-  </header>
-
-  <RouterView />
+    <el-main>
+      <GlobalAside />
+      <div class="main">
+        <RouterView v-slot="{ Component }">
+          <KeepAlive :include="keepAliveNames">
+            <component :is="Component" />
+          </KeepAlive>
+        </RouterView>
+      </div>
+    </el-main>
+  </el-container>
 </template>
 
 <style scoped>
-header {
-  line-height: 1.5;
-  max-height: 100vh;
+.app-container {
+  height: 100vh;
 }
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
+.el-main {
+  display: flex;
+  padding: 0;
 }
-
-nav {
-  width: 100%;
-  font-size: 12px;
-  text-align: center;
-  margin-top: 2rem;
-}
-
-nav a.router-link-exact-active {
-  color: var(--color-text);
-}
-
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
-}
-
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
-}
-
-nav a:first-of-type {
-  border: 0;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  nav {
-    text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
-
-    padding: 1rem 0;
-    margin-top: 1rem;
-  }
+.main {
+  background-color: var(--el-bg-color-page);
+  padding: var(--el-main-padding);
+  flex: 1;
 }
 </style>

@@ -12,3 +12,7 @@
 );
 
 @use 'element-plus/theme-chalk/src/index.scss' as *;
+
+body {
+  margin: 0;
+}
