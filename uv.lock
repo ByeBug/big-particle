@@ -8,20 +8,6 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "anyio"
-version = "4.10.0"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-dependencies = [
-    { name = "idna" },
-    { name = "sniffio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
-]
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/f1/b4/636b3b65173d3ce9a38ef5f0522789614e590dab6a8d505340a4efe4c567/anyio-4.10.0.tar.gz", hash = "sha256:3f3fae35c96039744587aa5b8371e7e8e603c0702999535961dd336026973ba6", size = 213252, upload-time = "2025-08-04T08:54:26.451Z" }
-wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/6f/12/e5e0282d673bb9746bacfb6e2dba8719989d3660cdb2ea79aee9a9651afb/anyio-4.10.0-py3-none-any.whl", hash = "sha256:60e474ac86736bbfd6f210f7a61218939c318f43f9972497381f1c5e930ed3d1", size = 107213, upload-time = "2025-08-04T08:54:24.882Z" },
-]
-
-[[package]]
 name = "asgiref"
 version = "3.9.1"
 source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
@@ -35,11 +21,11 @@ name = "big-particle-backend"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "django-cors-headers" },
     { name = "djangorestframework" },
     { name = "imgaug" },
     { name = "numpy" },
     { name = "opencv-python" },
-    { name = "paddlepaddle-gpu" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pyyaml" },
     { name = "setuptools" },
@@ -47,23 +33,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "django-cors-headers", specifier = ">=4.7.0" },
     { name = "djangorestframework", specifier = ">=3.16.0" },
     { name = "imgaug", specifier = ">=0.4.0" },
     { name = "numpy", specifier = "<2" },
     { name = "opencv-python", specifier = "<=4.6" },
-    { name = "paddlepaddle-gpu", specifier = "==3.1.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.9" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "setuptools", specifier = ">=80.9.0" },
-]
-
-[[package]]
-name = "certifi"
-version = "2025.8.3"
-source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
-sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/dc/67/960ebe6bf230a96cda2e0abcf73af550ec4f090005363542f0765df162e0/certifi-2025.8.3.tar.gz", hash = "sha256:e564105f78ded564e3ae7c923924435e1daa7463faeab5bb932bc53ffae63407", size = 162386, upload-time = "2025-08-03T03:07:47.08Z" }
-wheels = [
-    { url = "https://mirrors.ustc.edu.cn/pypi/packages/e5/48/1549795ba7742c948d2ad169c1c8cdbae65bc450d6cd753d124b17c8cd32/certifi-2025.8.3-py3-none-any.whl", hash = "sha256:f6c12493cfb1b06ba2ff328595af9350c65d6644968e5d3a2ffd78699af217a5", size = 161216, upload-time = "2025-08-03T03:07:45.777Z" },
 ]
 
 [[package]]
@@ -135,17 +112,10 @@ wheels = [
 [[package]]
 name = "cycler"
 version = "0.12.1"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/a9/95/a3dbbb5028f35eafb79008e7522a75244477d2838f38cbb722248dabc2a8/cycler-0.12.1.tar.gz", hash = "sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c", size = 7615, upload-time = "2023-10-07T05:32:18.335Z" }
 wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/cycler/cycler-0.12.1-py3-none-any.whl" },
-]
-
-[[package]]
-name = "decorator"
-version = "5.2.1"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/decorator/decorator-5.2.1-py3-none-any.whl" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30", size = 8321, upload-time = "2023-10-07T05:32:16.783Z" },
 ]
 
 [[package]]
@@ -160,6 +130,19 @@ dependencies = [
 sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/9c/7e/034f0f9fb10c029a02daaf44d364d6bf2eced8c73f0d38c69da359d26b01/django-5.2.4.tar.gz", hash = "sha256:a1228c384f8fa13eebc015196db7b3e08722c5058d4758d20cb287503a540d8f", size = 10831909, upload-time = "2025-07-02T18:47:39.19Z" }
 wheels = [
     { url = "https://mirrors.ustc.edu.cn/pypi/packages/14/ae/706965237a672434c8b520e89a818e8b047af94e9beb342d0bee405c26c7/django-5.2.4-py3-none-any.whl", hash = "sha256:60c35bd96201b10c6e7a78121bd0da51084733efa303cc19ead021ab179cef5e", size = 8302187, upload-time = "2025-07-02T18:47:35.373Z" },
+]
+
+[[package]]
+name = "django-cors-headers"
+version = "4.7.0"
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+dependencies = [
+    { name = "asgiref" },
+    { name = "django" },
+]
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/93/6c/16f6cb6064c63074fd5b2bd494eb319afd846236d9c1a6c765946df2c289/django_cors_headers-4.7.0.tar.gz", hash = "sha256:6fdf31bf9c6d6448ba09ef57157db2268d515d94fc5c89a0a1028e1fc03ee52b", size = 21037, upload-time = "2025-02-06T22:15:28.924Z" }
+wheels = [
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/7e/a2/7bcfff86314bd9dd698180e31ba00604001606efb518a06cca6833a54285/django_cors_headers-4.7.0-py3-none-any.whl", hash = "sha256:f1c125dcd58479fe7a67fe2499c16ee38b81b397463cf025f0e2c42937421070", size = 12794, upload-time = "2025-02-06T22:15:24.341Z" },
 ]
 
 [[package]]
@@ -200,57 +183,16 @@ wheels = [
 ]
 
 [[package]]
-name = "h11"
-version = "0.16.0"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/h11/h11-0.16.0-py3-none-any.whl" },
-]
-
-[[package]]
-name = "httpcore"
-version = "1.0.9"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-dependencies = [
-    { name = "certifi" },
-    { name = "h11" },
-]
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/httpcore/httpcore-1.0.9-py3-none-any.whl" },
-]
-
-[[package]]
-name = "httpx"
-version = "0.28.1"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-dependencies = [
-    { name = "anyio" },
-    { name = "certifi" },
-    { name = "httpcore" },
-    { name = "idna" },
-]
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/httpx/httpx-0.28.1-py3-none-any.whl" },
-]
-
-[[package]]
-name = "idna"
-version = "3.10"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/idna/idna-3.10-py3-none-any.whl" },
-]
-
-[[package]]
 name = "imageio"
 version = "2.37.0"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "pillow" },
 ]
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/0c/47/57e897fb7094afb2d26e8b2e4af9a45c7cf1a405acdeeca001fdf2c98501/imageio-2.37.0.tar.gz", hash = "sha256:71b57b3669666272c818497aebba2b4c5f20d5b37c81720e5e1a56d59c492996", size = 389963, upload-time = "2025-01-20T02:42:37.089Z" }
 wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/imageio/imageio-2.37.0-py3-none-any.whl" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/cb/bd/b394387b598ed84d8d0fa90611a90bee0adc2021820ad5729f7ced74a8e2/imageio-2.37.0-py3-none-any.whl", hash = "sha256:11efa15b87bc7871b61590326b2d635439acc321cf7f8ce996f812543ce10eed", size = 315796, upload-time = "2025-01-20T02:42:34.931Z" },
 ]
 
 [[package]]
@@ -387,9 +329,10 @@ wheels = [
 [[package]]
 name = "networkx"
 version = "3.5"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/6c/4f/ccdb8ad3a38e583f214547fd2f7ff1fc160c43a75af88e6aec213404b96a/networkx-3.5.tar.gz", hash = "sha256:d4c6f9cf81f52d69230866796b82afbccdec3db7ae4fbd1b65ea750feed50037", size = 2471065, upload-time = "2025-05-29T11:35:07.804Z" }
 wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/networkx/networkx-3.5-py3-none-any.whl" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/eb/8d/776adee7bbf76365fdd7f2552710282c79a4ead5d2a46408c9043a2b70ba/networkx-3.5-py3-none-any.whl", hash = "sha256:0030d386a9a06dee3565298b4a734b68589749a544acbb6c412dc9e2489ec6ec", size = 2034406, upload-time = "2025-05-29T11:35:04.961Z" },
 ]
 
 [[package]]
@@ -406,140 +349,6 @@ wheels = [
     { url = "https://mirrors.ustc.edu.cn/pypi/packages/d0/17/196d1b92de1bd3ca1519586845c2607e4e1a8a60f442fa084b15794b449a/numpy-1.26.3-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8ed07a90f5450d99dad60d3799f9c03c6566709bd53b497eb9ccad9a55867f36", size = 17786475, upload-time = "2024-01-02T22:30:14.286Z" },
     { url = "https://mirrors.ustc.edu.cn/pypi/packages/3f/55/cd123e8d88a98d0bcc69a707f3dae8bfde64206040a826a030c241850014/numpy-1.26.3-cp312-cp312-win32.whl", hash = "sha256:f73497e8c38295aaa4741bdfa4fda1a5aedda5473074369eca10626835445511", size = 19999988, upload-time = "2024-01-02T22:30:47.32Z" },
     { url = "https://mirrors.ustc.edu.cn/pypi/packages/ad/11/52fbe97fd84c91105b651d25a122f8deed6d3519afb14f9771fac1c9b7de/numpy-1.26.3-cp312-cp312-win_amd64.whl", hash = "sha256:da4b0c6c699a0ad73c810736303f7fbae483bcb012e38d7eb06a5e3b432c981b", size = 15517532, upload-time = "2024-01-02T22:31:13.404Z" },
-]
-
-[[package]]
-name = "nvidia-cublas-cu12"
-version = "12.6.4.1"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cublas-cu12/nvidia_cublas_cu12-12.6.4.1-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cuda-cccl-cu12"
-version = "12.6.77"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cuda-cccl-cu12/nvidia_cuda_cccl_cu12-12.6.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cuda-cupti-cu12"
-version = "12.6.80"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cuda-cupti-cu12/nvidia_cuda_cupti_cu12-12.6.80-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cuda-nvrtc-cu12"
-version = "12.6.77"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cuda-nvrtc-cu12/nvidia_cuda_nvrtc_cu12-12.6.77-py3-none-manylinux2014_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cuda-runtime-cu12"
-version = "12.6.77"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cuda-runtime-cu12/nvidia_cuda_runtime_cu12-12.6.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cudnn-cu12"
-version = "9.5.1.17"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-]
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cudnn-cu12/nvidia_cudnn_cu12-9.5.1.17-py3-none-manylinux_2_28_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cufft-cu12"
-version = "11.3.0.4"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-]
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cufft-cu12/nvidia_cufft_cu12-11.3.0.4-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cufile-cu12"
-version = "1.11.1.6"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cufile-cu12/nvidia_cufile_cu12-1.11.1.6-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-curand-cu12"
-version = "10.3.7.77"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-curand-cu12/nvidia_curand_cu12-10.3.7.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cusolver-cu12"
-version = "11.7.1.2"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "nvidia-cusparse-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-]
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cusolver-cu12/nvidia_cusolver_cu12-11.7.1.2-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cusparse-cu12"
-version = "12.5.4.2"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux')" },
-]
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cusparse-cu12/nvidia_cusparse_cu12-12.5.4.2-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-cusparselt-cu12"
-version = "0.6.3"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-cusparselt-cu12/nvidia_cusparselt_cu12-0.6.3-py3-none-manylinux2014_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-nccl-cu12"
-version = "2.25.1"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-nccl-cu12/nvidia_nccl_cu12-2.25.1-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-nvjitlink-cu12"
-version = "12.6.85"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-nvjitlink-cu12/nvidia_nvjitlink_cu12-12.6.85-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl" },
-]
-
-[[package]]
-name = "nvidia-nvtx-cu12"
-version = "12.6.77"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/nvidia-nvtx-cu12/nvidia_nvtx_cu12-12.6.77-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl" },
 ]
 
 [[package]]
@@ -560,58 +369,12 @@ wheels = [
 ]
 
 [[package]]
-name = "opt-einsum"
-version = "3.3.0"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-dependencies = [
-    { name = "numpy" },
-]
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/opt-einsum/opt_einsum-3.3.0-py3-none-any.whl" },
-]
-
-[[package]]
 name = "packaging"
 version = "25.0"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/a1/d4/1fc4078c65507b51b96ca8f8c3ba19e6a61c8253c72794544580a7b6c24d/packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f", size = 165727, upload-time = "2025-04-19T11:48:59.673Z" }
 wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/packaging/packaging-25.0-py3-none-any.whl" },
-]
-
-[[package]]
-name = "paddlepaddle-gpu"
-version = "3.1.0"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-dependencies = [
-    { name = "decorator" },
-    { name = "httpx" },
-    { name = "networkx" },
-    { name = "numpy" },
-    { name = "nvidia-cublas-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cuda-cccl-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cuda-cupti-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cuda-nvrtc-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cuda-runtime-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cudnn-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cufft-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cufile-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-curand-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cusolver-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cusparse-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-cusparselt-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-nccl-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-nvjitlink-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "nvidia-nvtx-cu12", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "opt-einsum" },
-    { name = "pillow" },
-    { name = "protobuf" },
-    { name = "typing-extensions" },
-]
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/paddlepaddle-gpu/paddlepaddle_gpu-3.1.0-cp312-cp312-linux_x86_64.whl" },
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/paddlepaddle-gpu/paddlepaddle_gpu-3.1.0-cp312-cp312-win_amd64.whl" },
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/paddlepaddle-gpu/paddlepaddle_gpu-3.1.0-cp313-cp313-linux_x86_64.whl" },
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/paddlepaddle-gpu/paddlepaddle_gpu-3.1.0-cp313-cp313-win_amd64.whl" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484", size = 66469, upload-time = "2025-04-19T11:48:57.875Z" },
 ]
 
 [[package]]
@@ -681,15 +444,6 @@ wheels = [
 ]
 
 [[package]]
-name = "protobuf"
-version = "6.31.1"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/protobuf/protobuf-6.31.1-cp310-abi3-win_amd64.whl" },
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/protobuf/protobuf-6.31.1-cp39-abi3-manylinux2014_x86_64.whl" },
-]
-
-[[package]]
 name = "psycopg"
 version = "3.2.9"
 source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
@@ -739,20 +493,22 @@ wheels = [
 [[package]]
 name = "pyparsing"
 version = "3.2.3"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/bb/22/f1129e69d94ffff626bdb5c835506b3a5b4f3d070f17ea295e12c2c6f60f/pyparsing-3.2.3.tar.gz", hash = "sha256:b9c13f1ab8b3b542f72e28f634bad4de758ab3ce4546e4301970ad6fa77c38be", size = 1088608, upload-time = "2025-03-25T05:01:28.114Z" }
 wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/pyparsing/pyparsing-3.2.3-py3-none-any.whl" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/05/e7/df2285f3d08fee213f2d041540fa4fc9ca6c2d44cf36d3a035bf2a8d2bcc/pyparsing-3.2.3-py3-none-any.whl", hash = "sha256:a749938e02d6fd0b59b356ca504a24982314bb090c383e3cf201c95ef7e2bfcf", size = 111120, upload-time = "2025-03-25T05:01:24.908Z" },
 ]
 
 [[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
 dependencies = [
     { name = "six" },
 ]
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3", size = 342432, upload-time = "2024-03-01T18:36:20.211Z" }
 wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/python-dateutil/python_dateutil-2.9.0.post0-py2.py3-none-any.whl" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },
 ]
 
 [[package]]
@@ -913,17 +669,10 @@ wheels = [
 [[package]]
 name = "six"
 version = "1.17.0"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81", size = 34031, upload-time = "2024-12-04T17:35:28.174Z" }
 wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/six/six-1.17.0-py2.py3-none-any.whl" },
-]
-
-[[package]]
-name = "sniffio"
-version = "1.3.1"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
-wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/sniffio/sniffio-1.3.1-py3-none-any.whl" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050, upload-time = "2024-12-04T17:35:26.475Z" },
 ]
 
 [[package]]
@@ -959,7 +708,8 @@ wheels = [
 [[package]]
 name = "tzdata"
 version = "2025.2"
-source = { registry = "https://www.paddlepaddle.org.cn/packages/stable/cu126/" }
+source = { registry = "https://mirrors.ustc.edu.cn/pypi/simple" }
+sdist = { url = "https://mirrors.ustc.edu.cn/pypi/packages/95/32/1a225d6164441be760d75c2c42e2780dc0873fe382da3e98a2e1e48361e5/tzdata-2025.2.tar.gz", hash = "sha256:b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9", size = 196380, upload-time = "2025-03-23T13:54:43.652Z" }
 wheels = [
-    { url = "https://paddle-whl.bj.bcebos.com/stable/cu126/tzdata/tzdata-2025.2-py2.py3-none-any.whl" },
+    { url = "https://mirrors.ustc.edu.cn/pypi/packages/5c/23/c7abc0ca0a1526a0774eca151daeb8de62ec457e77262b66b359c3c7679e/tzdata-2025.2-py2.py3-none-any.whl", hash = "sha256:1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8", size = 347839, upload-time = "2025-03-23T13:54:41.845Z" },
 ]

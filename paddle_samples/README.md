@@ -3,7 +3,7 @@
 安装：
 ```sh
 apt install ccache
-uv add paddlepaddle-gpu==3.1.0 --index https://www.paddlepaddle.org.cn/packages/stable/cu126/ --index-strategy unsafe-best-match
+uv pip install paddlepaddle-gpu==3.1.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
 ```
 
 命令：

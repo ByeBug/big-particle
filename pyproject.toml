@@ -1,8 +1,6 @@
 [[tool.uv.index]]
 url = "https://mirrors.ustc.edu.cn/pypi/simple"
 default = true
-[[tool.uv.index]]
-url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
 
 [tool.pyright]
 extraPaths = ["/opt/MVS/Samples/64/Python/MvImport"]
@@ -18,12 +16,12 @@ description = "大颗粒项目后端"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "django-cors-headers>=4.7.0",
     "djangorestframework>=3.16.0",
     # paddle preprocess 中使用 imgaug，但 imgaug 不支持 numpy 2.0，因此降低 numpy、opencv 版本
     "imgaug>=0.4.0",
     "numpy<2",
     "opencv-python<=4.6",
-    "paddlepaddle-gpu==3.1.0",
     "psycopg[binary]>=3.2.9",
     "pyyaml>=6.0.2",
     # paddle 中依赖
