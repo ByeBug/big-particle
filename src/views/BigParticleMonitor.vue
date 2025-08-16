@@ -1,27 +1,26 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
+import dayjs from 'dayjs'
 import { listVideoStreams, type VideoStreamItem } from '@/services/videostreams'
 import { getActiveBigParticleAlgorithmConfig } from '@/services/systemConfigs'
 import { getBigParticleStats } from '@/services/bigParticleStats'
 
-// 监控数据
-const monitorData = ref({
-  particleCount: 0,
-  temperature: '0.0',
-  pressure: '0.00',
-  flowRate: '0.0',
-})
-
-// 监控状态
-const isMonitoring = ref(false)
-
 // 定时器ID
 let timer: number | null = null
+let isPolling = false
 
 // 流列表（仅存内存，不渲染）
 type AlarmLevel = 'ok' | 'warning' | 'error'
 type StreamWithAlarm = VideoStreamItem & { alarmLevel?: AlarmLevel }
 const streamWithAlarms = ref<StreamWithAlarm[]>([])
+const serviceHealthy = ref(true)
+const lastUpdatedAt = ref('')
+
+const isClosed = (s: StreamWithAlarm) => !s.enabled || s.status === 'disabled'
+const normalCount = ref(0)
+const warningCount = ref(0)
+const errorCount = ref(0)
+const closedCount = ref(0)
 
 // 配置与范围/统计
 type RangeKey = 'recent_30s' | 'today'
@@ -58,67 +57,91 @@ const getStatusTagType = (s: StreamWithAlarm) => {
   return 'primary'
 }
 
-// 实时数据更新
-const updateData = async () => {
-  monitorData.value = {
-    particleCount: Math.floor(Math.random() * 1000),
-    temperature: (Math.random() * 100).toFixed(1),
-    pressure: (Math.random() * 10).toFixed(2),
-    flowRate: (Math.random() * 50).toFixed(1),
-  }
-
+// 实时数据更新；返回是否成功
+const updateData = async (): Promise<boolean> => {
   // 获取流列表
-  const streamsRes = await listVideoStreams()
-  const streams = streamsRes.results
-  for (const stream of streams) {
-    if (stream.id === 4) {
-      stream.enabled = true
+  try {
+    const streamsRes = await listVideoStreams()
+    const streams = streamsRes.results
+    for (const stream of streams) {
+      if (stream.id === 4) {
+        stream.enabled = true
+      }
     }
-  }
-  const ids = streams.map((s) => s.id)
-  if (ids.length > 0) {
-    // 获取统计数据
-    const statsRes = await getBigParticleStats(ids)
-    const nextStats: StreamStatsMap = new Map()
-    const levelSet = new Set<number>()
-    statsRes.results.forEach((item) => {
-      const byRange = createEmptyRangeStats()
-      item.stats.forEach((rangeItem) => {
-        const key = rangeItem.range as RangeKey
-        const map = key === 'today' ? byRange.today : byRange.recent_30s
-        rangeItem.values.forEach((v) => {
-          map.set(v.level, v.count)
-          levelSet.add(v.level)
+    const ids = streams.map((s) => s.id)
+    if (ids.length > 0) {
+      // 获取统计数据
+      const statsRes = await getBigParticleStats(ids)
+      const nextStats: StreamStatsMap = new Map()
+      const levelSet = new Set<number>()
+      statsRes.results.forEach((item) => {
+        const byRange = createEmptyRangeStats()
+        item.stats.forEach((rangeItem) => {
+          const key = rangeItem.range as RangeKey
+          const map = key === 'today' ? byRange.today : byRange.recent_30s
+          rangeItem.values.forEach((v) => {
+            map.set(v.level, v.count)
+            levelSet.add(v.level)
+          })
         })
+        nextStats.set(item.stream_id, byRange)
       })
-      nextStats.set(item.stream_id, byRange)
-    })
-    streamStats.value = nextStats
+      streamStats.value = nextStats
 
-    // 与配置 level 比对，不一致则刷新配置并同步 sizeLevels
-    const levelsFromStats = Array.from(levelSet).sort((a, b) => a - b)
-    const arraysEqual = (a: number[], b: number[]) =>
-      a.length === b.length && a.every((v, i) => v === b[i])
-    if (sizeLevels.value.length === 0 || !arraysEqual(sizeLevels.value, levelsFromStats)) {
-      // 获取配置
-      const cfg = await getActiveBigParticleAlgorithmConfig()
-      const threshold = cfg?.config_data?.alarm_threshold as Array<{
-        size_level: number
-        warning: number
-        error: number
-      }>
-      const map = new Map<number, { warning: number; error: number }>()
-      threshold.forEach((t) => map.set(t.size_level, { warning: t.warning, error: t.error }))
-      thresholds.value = map
-      sizeLevels.value = levelsFromStats
+      // 与配置 level 比对，不一致则刷新配置并同步 sizeLevels
+      const levelsFromStats = Array.from(levelSet).sort((a, b) => a - b)
+      const arraysEqual = (a: number[], b: number[]) =>
+        a.length === b.length && a.every((v, i) => v === b[i])
+      if (sizeLevels.value.length === 0 || !arraysEqual(sizeLevels.value, levelsFromStats)) {
+        // 获取配置
+        const cfg = await getActiveBigParticleAlgorithmConfig()
+        const threshold = cfg?.config_data?.alarm_threshold as Array<{
+          size_level: number
+          warning: number
+          error: number
+        }>
+        const map = new Map<number, { warning: number; error: number }>()
+        threshold.forEach((t) => map.set(t.size_level, { warning: t.warning, error: t.error }))
+        thresholds.value = map
+        sizeLevels.value = levelsFromStats
+      }
     }
-  }
 
-  // 组合数据并打标告警等级（基于 30s 内数据）
-  streamWithAlarms.value = streams.map((stream) => {
-    const level = evaluateStreamAlarm(stream.id)
-    return { ...stream, alarmLevel: level }
-  })
+    // 组合数据并打标告警等级（基于 30s 内数据）
+    const combined = streams.map((stream: VideoStreamItem) => ({
+      ...stream,
+      alarmLevel: evaluateStreamAlarm(stream.id),
+    }))
+    streamWithAlarms.value = combined
+
+    // 单次遍历统计四种状态数量
+    let n = 0,
+      w = 0,
+      e = 0,
+      c = 0
+    for (const s of combined) {
+      if (isClosed(s)) {
+        c += 1
+      } else if (s.status === 'abnormal' || s.alarmLevel === 'error') {
+        e += 1
+      } else if (s.alarmLevel === 'warning') {
+        w += 1
+      } else {
+        n += 1
+      }
+    }
+    normalCount.value = n
+    warningCount.value = w
+    errorCount.value = e
+    closedCount.value = c
+
+    serviceHealthy.value = true
+    lastUpdatedAt.value = dayjs().format('YYYY-MM-DD HH:mm:ss')
+    return true
+  } catch {
+    serviceHealthy.value = false
+    return false
+  }
 }
 
 // 获取指定流在给定时间范围和级别的计数
@@ -176,22 +199,28 @@ const formatLevelRangeLabel = (index: number): string => {
   return `${current} - ${next}mm`
 }
 
-// 启动定时器
+// 启动轮询：一次请求结束后再等待（成功2s，失败10s）
 const startTimer = () => {
-  if (!timer) {
-    console.log('🚀 开始实时监控')
-    isMonitoring.value = true
-    updateData()
-    timer = setInterval(updateData, 2000) // 每2秒更新一次
+  if (isPolling) return
+  console.log('🚀 开始实时监控')
+  isPolling = true
+
+  const loop = async () => {
+    const ok = await updateData()
+    if (!isPolling) return
+    const delay = ok ? 2000 : 10000
+    timer = window.setTimeout(loop, delay)
   }
+
+  loop()
 }
 
 // 停止定时器
 const stopTimer = () => {
   if (timer) {
     console.log('⏸️ 暂停实时监控')
-    isMonitoring.value = false
-    clearInterval(timer)
+    isPolling = false
+    clearTimeout(timer)
     timer = null
   }
 }
@@ -224,12 +253,44 @@ onDeactivated(() => {
 <template>
   <div class="monitor-container">
     <div class="header">
-      <h2>大颗粒实时监控</h2>
-      <el-tag :type="isMonitoring ? 'success' : 'warning'" class="status-tag">
-        <el-icon><component :is="isMonitoring ? 'VideoPlay' : 'VideoPause'" /></el-icon>
-        {{ isMonitoring ? '实时监控中' : '监控已暂停' }}
-      </el-tag>
+      <div class="dots">
+        <div class="dot-item normal">
+          <i class="dot"></i>
+          <span class="num">{{ normalCount }}</span>
+          <span class="label">正常</span>
+        </div>
+        <div class="dot-item warning">
+          <i class="dot"></i>
+          <span class="num">{{ warningCount }}</span>
+          <span class="label">警告</span>
+        </div>
+        <div class="dot-item error">
+          <i class="dot"></i>
+          <span class="num">{{ errorCount }}</span>
+          <span class="label">错误</span>
+        </div>
+        <div class="dot-item closed">
+          <i class="dot"></i>
+          <span class="num">{{ closedCount }}</span>
+          <span class="label">关闭</span>
+        </div>
+      </div>
+      <div class="right-side">
+        <el-tag :type="serviceHealthy ? 'success' : 'danger'" class="status-tag">
+          {{ serviceHealthy ? '实时更新' : '服务异常' }}
+        </el-tag>
+        <span class="updated-at" v-if="lastUpdatedAt">更新：{{ lastUpdatedAt }}</span>
+      </div>
     </div>
+
+    <el-alert
+      v-if="!serviceHealthy"
+      title="服务异常：数据更新失败"
+      type="error"
+      show-icon
+      :closable="false"
+      class="global-alert"
+    />
 
     <div class="stream-grid">
       <div v-for="stream in streamWithAlarms" :key="stream.id" class="stream-card-item">
@@ -291,57 +352,6 @@ onDeactivated(() => {
           </el-card>
         </div>
       </div>
-    </div>
-
-    <el-row :gutter="20">
-      <el-col :span="6">
-        <el-card>
-          <template #header>
-            <span>颗粒数量</span>
-          </template>
-          <div class="metric-value">{{ monitorData.particleCount }}</div>
-          <div class="metric-unit">个</div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="6">
-        <el-card>
-          <template #header>
-            <span>温度</span>
-          </template>
-          <div class="metric-value">{{ monitorData.temperature }}</div>
-          <div class="metric-unit">°C</div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="6">
-        <el-card>
-          <template #header>
-            <span>压力</span>
-          </template>
-          <div class="metric-value">{{ monitorData.pressure }}</div>
-          <div class="metric-unit">MPa</div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="6">
-        <el-card>
-          <template #header>
-            <span>流量</span>
-          </template>
-          <div class="metric-value">{{ monitorData.flowRate }}</div>
-          <div class="metric-unit">L/min</div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <div class="chart-container">
-      <el-card>
-        <template #header>
-          <span>实时趋势图</span>
-        </template>
-        <div class="chart-placeholder">📊 这里将显示实时图表 (保持状态以避免重新渲染)</div>
-      </el-card>
     </div>
   </div>
 </template>
@@ -473,38 +483,68 @@ onDeactivated(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  padding: 0 18px;
 }
 
 .status-tag {
   font-size: 14px;
 }
 
-.metric-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--el-color-primary);
-  text-align: center;
+.dots {
+  display: flex;
+  gap: 16px;
 }
 
-.metric-unit {
-  font-size: 14px;
-  color: var(--el-text-color-secondary);
-  text-align: center;
-  margin-top: 5px;
-}
-
-.chart-container {
-  margin-top: 20px;
-}
-
-.chart-placeholder {
-  height: 300px;
+.dot-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background-color: var(--el-fill-color-light);
-  border-radius: 4px;
-  font-size: 16px;
+  gap: 8px;
+}
+
+.dot-item .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-item .num {
+  display: inline-block;
+  width: 24px; /* 固定宽度，避免跳动 */
+  text-align: right;
+  font-weight: 600;
+}
+
+.dot-item .label {
   color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.dot-item.normal .dot {
+  background: var(--el-color-success);
+}
+.dot-item.warning .dot {
+  background: var(--el-color-warning);
+}
+.dot-item.error .dot {
+  background: var(--el-color-danger);
+}
+.dot-item.closed .dot {
+  background: var(--el-color-info);
+}
+
+.right-side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.updated-at {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.global-alert {
+  margin-bottom: 12px;
 }
 </style>

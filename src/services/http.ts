@@ -6,6 +6,7 @@ const apiBaseUrl: string = import.meta.env.VITE_API_BASE_URL ?? DEFAULT_BASE_URL
 export const http: AxiosInstance = axios.create({
   baseURL: apiBaseUrl,
   headers: { Accept: 'application/json' },
+  timeout: 2000,
 })
 
 export interface PaginatedResponse<T> {
