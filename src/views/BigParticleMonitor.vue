@@ -475,7 +475,7 @@ onDeactivated(() => {
   margin-top: 4px;
 }
 .monitor-container {
-  padding: 20px;
+  padding-bottom: 20px;
 }
 
 .header {
@@ -483,7 +483,7 @@ onDeactivated(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding: 0 18px;
+  padding-left: 18px;
 }
 
 .status-tag {
