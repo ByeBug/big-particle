@@ -19,7 +19,6 @@ const keepAliveNames = computed(() => {
     })
     .filter(Boolean)
 
-  console.log('最终 KeepAlive 列表:', names)
   return names
 })
 </script>
@@ -55,5 +54,6 @@ const keepAliveNames = computed(() => {
   background-color: var(--el-bg-color-page);
   padding: var(--el-main-padding);
   flex: 1;
+  overflow: auto;
 }
 </style>
