@@ -93,6 +93,9 @@ DATABASES = {
         "USER": "bigparticle",
         "PASSWORD": "bigparticle",
         "NAME": "bigparticle",
+        # 本地测试使用 sqlite
+        # "ENGINE": "django.db.backends.sqlite3",
+        # "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 

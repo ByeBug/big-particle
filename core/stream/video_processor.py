@@ -14,7 +14,6 @@ from .logging_utils import StreamLoggerAdapter
 from .frame import DecodedFrame
 from .count_down_latch import CountDownLatch
 from .algorithm.status import InferStatus
-from .algorithm.big_particle_algo import BigParticleAlgo
 from django.db import transaction
 
 logger = logging.getLogger(__name__)
@@ -257,6 +256,7 @@ class VideoStreamProcessor:
                     algo_config = self._merge_algorithm_config(algo_name, algo_static_config, dynamic_config)
                     
                     if algo_name == 'big_particle':
+                        from .algorithm.big_particle_algo import BigParticleAlgo
                         algo_instance = BigParticleAlgo(self.video_stream.id, algo_config)
                     else:
                         raise ValueError(f"不支持的算法: {algo_name}")
@@ -593,9 +593,9 @@ def cleanup_loop():
 def get_free_space_gb(path: str) -> float:
     """获取指定路径的剩余磁盘空间（GB）"""
     try:
-        statvfs = os.statvfs(path)
-        free_bytes = statvfs.f_frsize * statvfs.f_bavail
-        return free_bytes / (1024 ** 3)  # 转换为GB
+        # 使用 shutil.disk_usage() - 跨平台兼容 Windows/Linux/macOS
+        _, _, free = shutil.disk_usage(path)
+        return free / (1024 ** 3)  # 转换为GB
     except Exception as e:
         logger.error(f"获取磁盘空间失败: {e}")
         return float('inf')  # 返回无限大，避免误删
