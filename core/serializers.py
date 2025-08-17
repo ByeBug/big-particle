@@ -352,33 +352,39 @@ class SystemConfigSerializer(serializers.HyperlinkedModelSerializer):
                 alarm_threshold = config_data.get('alarm_threshold')
                 if alarm_threshold is None:
                     raise serializers.ValidationError("config_data 必须包含 alarm_threshold 字段")
-                if not isinstance(alarm_threshold, dict):
-                    raise serializers.ValidationError("alarm_threshold 必须是字典")
+                if not isinstance(alarm_threshold, list):
+                    raise serializers.ValidationError("alarm_threshold 必须是列表")
                 if len(alarm_threshold) < 1 or len(alarm_threshold) > 5:
                     raise serializers.ValidationError("alarm_threshold 必须包含 1-5 个等级")
-                for key, value in alarm_threshold.items():
-                    try:
-                        size = int(key)
-                    except:
-                        raise serializers.ValidationError(f"alarm_threshold 中的 key 必须是整数: {key}")
-                    if size < 0:
-                        raise serializers.ValidationError(f"alarm_threshold 中的 key 必须大于 0: {key}")
+                existing_size_levels = set()
+                for threshold in alarm_threshold:
+                    if not isinstance(threshold, dict):
+                        raise serializers.ValidationError(f"threshold 必须是字典: {threshold}")
                     
-                    if not isinstance(value, dict):
-                        raise serializers.ValidationError(f"alarm_threshold 中的 value 必须是字典: {value}")
-                    if not 'warning' in value or not 'error' in value:
-                        raise serializers.ValidationError(f"alarm_threshold 中的 value 必须包含 warning 和 error 字段: {value}")
-                    warning_threshold = value.get('warning')
-                    error_threshold = value.get('error')
+                    if not 'size_level' in threshold:
+                        raise serializers.ValidationError(f"threshold 必须包含 size_level 字段: {threshold}")
+                    size_level = threshold.get('size_level')
+                    if size_level in existing_size_levels:
+                        raise serializers.ValidationError(f"size_level 不能重复: {size_level}")
+                    existing_size_levels.add(size_level)
+                    if not isinstance(size_level, int):
+                        raise serializers.ValidationError(f"size_level 必须是整数: {size_level}")
+                    if size_level < 0:
+                        raise serializers.ValidationError(f"size_level 必须大于 0: {size_level}")
+                    
+                    if not 'warning' in threshold or not 'error' in threshold:
+                        raise serializers.ValidationError(f"threshold 必须包含 warning 和 error 字段: {threshold}")
+                    warning_threshold = threshold.get('warning')
+                    error_threshold = threshold.get('error')
                     if not isinstance(warning_threshold, int):
-                        raise serializers.ValidationError(f"alarm_threshold 中的 warning 必须是整数: {warning_threshold}")
+                        raise serializers.ValidationError(f"warning 必须是整数: {warning_threshold}")
                     if not isinstance(error_threshold, int):
-                        raise serializers.ValidationError(f"alarm_threshold 中的 error 必须是整数: {error_threshold}")
+                        raise serializers.ValidationError(f"error 必须是整数: {error_threshold}")
                     if warning_threshold <= 0:
-                        raise serializers.ValidationError(f"alarm_threshold 中的 warning 必须大于 0: {warning_threshold}")
+                        raise serializers.ValidationError(f"warning 必须大于 0: {warning_threshold}")
                     if error_threshold <= 0:
-                        raise serializers.ValidationError(f"alarm_threshold 中的 error 必须大于 0: {error_threshold}")
+                        raise serializers.ValidationError(f"error 必须大于 0: {error_threshold}")
                     if warning_threshold >= error_threshold:
-                        raise serializers.ValidationError(f"alarm_threshold 中的 warning 必须小于 error: {warning_threshold} >= {error_threshold}")
+                        raise serializers.ValidationError(f"warning 必须小于 error: {warning_threshold} >= {error_threshold}")
 
         return data

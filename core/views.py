@@ -238,8 +238,8 @@ class BigParticleStatsAPIView(APIView):
         ).first()
         
         alarm_threshold = big_particle_config.config_data['alarm_threshold']
-        # 从 alarm_threshold 的 key 获取粒径等级，并排序
-        size_levels = sorted([int(k) for k in alarm_threshold.keys()])
+        # 从 alarm_threshold 中获取粒径等级，并排序
+        size_levels = sorted([threshold['size_level'] for threshold in alarm_threshold])
         return size_levels
     
     def get(self, request):
@@ -325,14 +325,29 @@ class BigParticleStatsAPIView(APIView):
         default_counts = {str(level): 0 for level in size_levels}
         
         # 构建响应数据
-        response_data = {}
+        results = []
         for stream_id in stream_ids:
-            response_data[str(stream_id)] = {
-                "recent_30s": recent_results.get(stream_id, default_counts.copy()),
-                "today": today_results.get(stream_id, default_counts.copy())
+            # 获取该流的统计数据
+            recent_data = recent_results.get(stream_id, default_counts.copy())
+            today_data = today_results.get(stream_id, default_counts.copy())
+            
+            # 构建该流的统计结果
+            stream_stats = {
+                "stream_id": stream_id,
+                "stats": [
+                    {
+                        "range": "recent_30s",
+                        "values": [{"level": level, "count": recent_data[str(level)]} for level in size_levels]
+                    },
+                    {
+                        "range": "today", 
+                        "values": [{"level": level, "count": today_data[str(level)]} for level in size_levels]
+                    }
+                ]
             }
+            results.append(stream_stats)
         
-        return Response(response_data)
+        return Response({"results": results})
 
 
 class SystemConfigViewSet(viewsets.ModelViewSet):
@@ -349,6 +364,11 @@ class SystemConfigViewSet(viewsets.ModelViewSet):
         config_type = self.request.query_params.get('config_type')
         if config_type:
             queryset = queryset.filter(config_type=config_type)
+        
+        # 根据名称过滤
+        name = self.request.query_params.get('name')
+        if name:
+            queryset = queryset.filter(name=name)
         
         # 根据是否启用过滤
         is_active = self.request.query_params.get('is_active')

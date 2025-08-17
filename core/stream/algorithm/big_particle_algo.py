@@ -37,7 +37,7 @@ class BigParticleAlgo:
         self.name = algo_config['name']
         self.algo_config = algo_config or {}
         self.threshold = self.algo_config['threshold']
-        self.size_threshold = sorted(self.algo_config['alarm_threshold'].keys())[0]
+        self.size_threshold = sorted([threshold['size_level'] for threshold in self.algo_config['alarm_threshold']])[0]
         # 设置带 StreamID 的日志器
         self.logger = StreamLoggerAdapter(logger, {'stream_id': stream_id})
         
@@ -59,7 +59,7 @@ class BigParticleAlgo:
         try:
             self.algo_config = algo_config
             self.threshold = self.algo_config['threshold']
-            self.size_threshold = sorted(self.algo_config['alarm_threshold'].keys())[0]
+            self.size_threshold = sorted([threshold['size_level'] for threshold in self.algo_config['alarm_threshold']])[0]
             self.logger.info(f"算法 {self.name} 已更新配置")
         except:
             self.logger.exception(f"算法 {self.name} 更新配置失败")
@@ -114,6 +114,7 @@ class BigParticleAlgo:
                     if instance.score < self.threshold:
                         continue
                     # TODO 计算粒径，单位为毫米
+                    # TODO 若和上帧的 iou 大于 0.8，则认为是同一颗粒，避免皮带未运行时重复记录同一颗粒
                     instance.size = instance.right - instance.left
                     # 忽略小于尺寸阈值的颗粒
                     if instance.size < self.size_threshold:

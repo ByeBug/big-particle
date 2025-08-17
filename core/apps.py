@@ -55,12 +55,12 @@ class CoreConfig(AppConfig):
                 defaults={
                     'description': '大颗粒检测算法配置',
                     'config_data': {
-                        'threshold': 0.5,       # 模型阈值
-                        'alarm_threshold': {            # 不同等级的告警阈值
-                            '28': {'warning': 30, 'error': 50},
-                            '32': {'warning': 10, 'error': 20},
-                            '50': {'warning': 1, 'error': 10},
-                        }
+                        'threshold': 0.7,       # 模型阈值
+                        'alarm_threshold': [    # 不同等级的告警阈值
+                            {'size_level': 28, 'warning': 30, 'error': 50},
+                            {'size_level': 32, 'warning': 10, 'error': 20},
+                            {'size_level': 50, 'warning': 1, 'error': 10},
+                        ]
                     },
                     'is_active': True
                 }
