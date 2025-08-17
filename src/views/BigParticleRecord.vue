@@ -17,7 +17,8 @@ const records = ref<BigParticleRecordItem[]>([])
 const previewVisible = ref(false)
 const selectedRecord = ref<BigParticleRecordItem | null>(null)
 
-const fetchRecords = async () => {
+const fetchRecords = async (newPage?: number) => {
+  if (typeof newPage === 'number') page.value = newPage
   loading.value = true
   try {
     const res = await listBigParticleRecords({ page: page.value })
@@ -48,11 +49,13 @@ const resolveImageUrl = (path: string) => {
 
 type PreviewMode = 'rendered' | 'original'
 const previewMode = ref<PreviewMode>('rendered')
+const selectedIndex = ref<number>(-1)
 
 const openPreview = (rec: BigParticleRecordItem) => {
   selectedRecord.value = rec
   previewMode.value = 'rendered'
   previewVisible.value = true
+  selectedIndex.value = records.value.findIndex((r) => r.id === rec.id)
 }
 
 const switchMode = (mode: PreviewMode) => {
@@ -75,6 +78,31 @@ const copyLink = async () => {
   await navigator.clipboard.writeText(currentUrl.value)
   ElMessage.success('图片链接已复制')
 }
+
+const pageCount = computed(() => Math.ceil(total.value / pageSize))
+const canPrev = computed(() => !(page.value === 1 && selectedIndex.value <= 0))
+const canNext = computed(
+  () => !(page.value === pageCount.value && selectedIndex.value >= records.value.length - 1),
+)
+
+const moveTo = async (delta: number) => {
+  let newIndex = selectedIndex.value + delta
+  // 换页到上一页尾或下一页首
+  if (newIndex < 0) {
+    if (page.value === 1) return
+    await fetchRecords(page.value - 1)
+    newIndex = records.value.length - 1
+  } else if (newIndex >= records.value.length) {
+    if (page.value >= pageCount.value) return
+    await fetchRecords(page.value + 1)
+    newIndex = 0
+  }
+  selectedIndex.value = newIndex
+  selectedRecord.value = records.value[selectedIndex.value] || null
+}
+
+const prevRecord = () => moveTo(-1)
+const nextRecord = () => moveTo(1)
 </script>
 
 <template>
@@ -170,6 +198,10 @@ const copyLink = async () => {
           </div>
 
           <div class="meta-ops">
+            <div class="btn-group">
+              <el-button @click="prevRecord" :disabled="!canPrev">上一条</el-button>
+              <el-button @click="nextRecord" :disabled="!canNext">下一条</el-button>
+            </div>
             <div class="btn-group">
               <el-button
                 :type="previewMode === 'rendered' ? 'primary' : 'default'"
