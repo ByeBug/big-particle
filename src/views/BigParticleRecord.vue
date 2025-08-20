@@ -72,6 +72,18 @@ onMounted(async () => {
   } catch {
     // ignore
   }
+  // 解析来自路由的预设条件
+  const q = new URLSearchParams(location.search)
+  const streamIds = q.get('stream_ids')
+  const min = q.get('min_max_size')
+  const max = q.get('max_max_size')
+  const start = q.get('start_time')
+  const end = q.get('end_time')
+  if (streamIds) filters.value.streamIds = streamIds.split(',').map((s) => Number(s))
+  if (min) filters.value.minMaxSize = Number(min)
+  if (max) filters.value.maxMaxSize = Number(max)
+  if (start && end) filters.value.timeRange = [dayjs(start).toDate(), dayjs(end).toDate()]
+
   await fetchRecords()
 })
 

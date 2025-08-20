@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 import dayjs from 'dayjs'
 import { listVideoStreams, type VideoStreamItem } from '@/services/videostreams'
+import { useRouter } from 'vue-router'
 import { getActiveBigParticleAlgorithmConfig } from '@/services/systemConfigs'
 import { getBigParticleStats } from '@/services/bigParticleStats'
 
@@ -35,6 +36,7 @@ const thresholds = ref<Map<number, { warning: number; error: number }>>(new Map(
 type RangeStatsMap = { recent_30s: Map<number, number>; today: Map<number, number> }
 type StreamStatsMap = Map<number, RangeStatsMap>
 const streamStats = ref<StreamStatsMap>(new Map())
+const router = useRouter()
 
 const createEmptyRangeStats = (): RangeStatsMap => ({
   recent_30s: new Map(),
@@ -188,6 +190,28 @@ const getLevelBoxClass = (streamId: number, level: number) => {
   }
 }
 
+// 跳转到记录页，带上筛选条件
+const goToRecordWithFilters = (streamId: number, levelIndex: number) => {
+  const levels = sizeLevels.value
+  if (levelIndex < 0 || levelIndex >= levels.length) return
+  const min = levels[levelIndex]
+  const max = levelIndex === levels.length - 1 ? undefined : levels[levelIndex + 1]
+  const now = dayjs()
+  const range = getCardRange(streamId)
+  const start = range === 'recent_30s' ? now.subtract(30, 'second') : now.startOf('day')
+  const end = range === 'recent_30s' ? now : now.endOf('day')
+  router.push({
+    name: 'record',
+    query: {
+      stream_ids: String(streamId),
+      min_max_size: String(min),
+      ...(max ? { max_max_size: String(max) } : {}),
+      start_time: start.format('YYYY-MM-DDTHH:mm:ss'),
+      end_time: end.format('YYYY-MM-DDTHH:mm:ss'),
+    },
+  })
+}
+
 // 显示区间标签：非最后一档显示 a - bmm，最后一档显示 > amm
 const formatLevelRangeLabel = (index: number): string => {
   const levels = sizeLevels.value
@@ -338,6 +362,7 @@ onDeactivated(() => {
                   :key="level"
                   class="level-box"
                   :class="getLevelBoxClass(stream.id, level)"
+                  @click="goToRecordWithFilters(stream.id, idx)"
                 >
                   <div class="level-label">{{ formatLevelRangeLabel(idx) }}</div>
                   <div class="level-count">
@@ -424,6 +449,7 @@ onDeactivated(() => {
   padding: 8px 10px;
   background: var(--el-fill-color-light);
   transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .level-box:hover {
