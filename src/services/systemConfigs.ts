@@ -1,4 +1,4 @@
-import { getJson, type PaginatedResponse } from './http'
+import { getJson, http, type PaginatedResponse } from './http'
 
 export interface SystemConfigItem {
   url: string
@@ -30,4 +30,16 @@ export async function getActiveBigParticleAlgorithmConfig(): Promise<SystemConfi
     is_active: true,
   })
   return res.results[0] ?? null
+}
+
+export interface UpdateSystemConfigPayload {
+  config_data?: Record<string, unknown>
+}
+
+export async function updateSystemConfig(
+  id: number,
+  payload: UpdateSystemConfigPayload,
+): Promise<SystemConfigItem> {
+  const res = await http.patch<SystemConfigItem>(`/system-configs/${id}/`, payload)
+  return res.data
 }
