@@ -77,4 +77,8 @@ const handleMenuClick = (routeName: string) => {
 .el-menu {
   min-height: calc(100vh - 60px);
 }
+.el-menu .is-active {
+  background-color: var(--el-menu-active-color);
+  color: white;
+}
 </style>
