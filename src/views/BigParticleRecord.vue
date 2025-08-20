@@ -5,11 +5,12 @@ import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
 import { ElMessage } from 'element-plus'
 import { listBigParticleRecords, type BigParticleRecordItem } from '@/services/bigParticleRecords'
+import { listVideoStreams, type VideoStreamItem } from '@/services/videostreams'
 
 dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
 
-const loading = ref(false)
+const loading = ref(true) // 初始设置 loading 为 true，避免闪现暂无记录
 const page = ref(1)
 const pageSize = 30
 const total = ref(0)
@@ -17,11 +18,35 @@ const records = ref<BigParticleRecordItem[]>([])
 const previewVisible = ref(false)
 const selectedRecord = ref<BigParticleRecordItem | null>(null)
 
+// 过滤表单
+const streams = ref<VideoStreamItem[]>([])
+const filters = ref({
+  streamIds: [] as number[],
+  minMaxSize: undefined as number | undefined,
+  maxMaxSize: undefined as number | undefined,
+  timeRange: [] as [Date, Date] | [],
+})
+
+const startOf7DaysAgo = () => dayjs().subtract(7, 'day').startOf('day').toDate()
+const endOfToday = () => dayjs().endOf('day').toDate()
+// 默认最近7天
+filters.value.timeRange = [startOf7DaysAgo(), endOfToday()]
+
+const formatLocalIso = (d?: Date) => (d ? dayjs(d).format('YYYY-MM-DDTHH:mm:ss') : undefined)
+
 const fetchRecords = async (newPage?: number) => {
   if (typeof newPage === 'number') page.value = newPage
   loading.value = true
   try {
-    const res = await listBigParticleRecords({ page: page.value })
+    const [start, end] = (filters.value.timeRange as [Date, Date]) || []
+    const res = await listBigParticleRecords({
+      page: page.value,
+      stream_ids: filters.value.streamIds,
+      min_max_size: filters.value.minMaxSize,
+      max_max_size: filters.value.maxMaxSize,
+      start_time: formatLocalIso(start),
+      end_time: formatLocalIso(end),
+    })
     total.value = res.count
     records.value = res.results
   } finally {
@@ -39,7 +64,16 @@ const formatDateWithRelative = (iso: string) => {
   return `${abs} · ${rel}`
 }
 
-onMounted(fetchRecords)
+onMounted(async () => {
+  // 初始化流选项与数据
+  try {
+    const vs = await listVideoStreams()
+    streams.value = vs.results
+  } catch {
+    // ignore
+  }
+  await fetchRecords()
+})
 
 const resolveImageUrl = (path: string) => {
   if (!path) return ''
@@ -107,7 +141,72 @@ const nextRecord = () => moveTo(1)
 
 <template>
   <div class="record-page">
-    <div class="record-grid">
+    <div class="filter-bar">
+      <el-form inline @keyup.enter="fetchRecords(1)">
+        <el-form-item label="流">
+          <el-select
+            class="stream-select"
+            v-model="filters.streamIds"
+            clearable
+            filterable
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            :max-collapse-tags="2"
+            placeholder="选择流"
+          >
+            <el-option v-for="s in streams" :key="s.id" :label="`${s.name}`" :value="s.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="粒径范围" style="min-width: 290px">
+          <el-input-number
+            v-model="filters.minMaxSize"
+            class="max-size-input"
+            :min="0"
+            placeholder="最小"
+            precision="0"
+            :controls="false"
+          />
+          <span class="range-sep">-</span>
+          <el-input-number
+            v-model="filters.maxMaxSize"
+            class="max-size-input"
+            :min="0"
+            placeholder="最大"
+            precision="0"
+            :controls="false"
+          />
+        </el-form-item>
+        <el-form-item label="时间范围">
+          <el-date-picker
+            v-model="filters.timeRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            style="width: 350px; min-width: 350px"
+            :default-time="[new Date(2000, 1, 1, 0, 0, 0), new Date(2000, 1, 1, 23, 59, 59)]"
+          />
+        </el-form-item>
+        <el-form-item style="min-width: 132px; margin-right: 0">
+          <el-button type="primary" @click="fetchRecords(1)">查询</el-button>
+          <el-button
+            @click="
+              () => {
+                filters.streamIds = []
+                filters.minMaxSize = undefined
+                filters.maxMaxSize = undefined
+                filters.timeRange = [startOf7DaysAgo(), endOfToday()]
+                fetchRecords(1)
+              }
+            "
+            >重置</el-button
+          >
+        </el-form-item>
+      </el-form>
+    </div>
+    <el-empty v-if="!loading && records.length === 0" description="暂无记录" />
+    <div v-else class="record-grid">
       <div v-for="item in records" :key="item.id" class="record-item">
         <el-card shadow="never" class="record-card">
           <div class="card-top" @click="openPreview(item)">
@@ -240,6 +339,24 @@ const nextRecord = () => moveTo(1)
 .record-page {
   padding-bottom: 20px;
 }
+.filter-bar {
+  padding-top: 12px;
+}
+.filter-bar .el-form {
+  display: flex;
+  flex-wrap: wrap;
+}
+.filter-bar .stream-select {
+  width: 300px;
+}
+.filter-bar .range-sep {
+  display: inline-block;
+  padding: 0 8px;
+  color: var(--el-text-color-secondary);
+}
+.filter-bar .max-size-input {
+  width: 100px;
+}
 .record-grid {
   display: grid;
   /* 固定 3 列，每页 30 条可以整除 */
@@ -249,6 +366,7 @@ const nextRecord = () => moveTo(1)
 .record-card {
   position: relative;
   transition: all 0.2s ease;
+  min-width: 220px;
   /* 重置 Element Plus 卡片内边距 */
   --el-card-padding: 0;
 }
