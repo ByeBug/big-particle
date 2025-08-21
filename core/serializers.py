@@ -384,7 +384,9 @@ class SystemConfigSerializer(serializers.HyperlinkedModelSerializer):
                         raise serializers.ValidationError(f"warning 必须大于 0: {warning_threshold}")
                     if error_threshold <= 0:
                         raise serializers.ValidationError(f"error 必须大于 0: {error_threshold}")
-                    if warning_threshold >= error_threshold:
-                        raise serializers.ValidationError(f"warning 必须小于 error: {warning_threshold} >= {error_threshold}")
+                    if warning_threshold > error_threshold:
+                        raise serializers.ValidationError(f"warning 必须小于等于 error: {warning_threshold} > {error_threshold}")
+                
+                config_data['alarm_threshold'] = sorted(alarm_threshold, key=lambda x: x['size_level'])
 
         return data

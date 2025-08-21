@@ -30,18 +30,14 @@ class CoreConfig(AppConfig):
         
         # 启动初始化线程
         threading.Thread(target=self._delay_init, name='delay_init').start()
-
-        from .stream.video_processor import start_cleanup_thread
-        try:
-            start_cleanup_thread()
-        except Exception as e:
-            logger.error(f"启动清理线程失败: {e}")
     
     def _delay_init(self):
         """延迟初始化，避免在 AppConfig.ready() 中访问数据库"""
         time.sleep(3)
+        from .stream.video_processor import start_cleanup_thread
+        start_cleanup_thread()
         self._init_default_configs()
-        # TODO 服务启动时加载并启动所有启用的视频流
+        self._start_enabled_streams()
 
     def _init_default_configs(self):
         """初始化默认系统配置"""
@@ -98,3 +94,29 @@ class CoreConfig(AppConfig):
         # 在 Windows 上也注册 SIGBREAK
         if hasattr(signal, 'SIGBREAK'):
             signal.signal(signal.SIGBREAK, shutdown_handler)
+
+    def _start_enabled_streams(self):
+        """启动所有启用的视频流"""
+        try:
+            logger.info("服务启动：加载并启动所有启用的视频流")
+            from .models import VideoStream
+            from .stream.video_processor import create_processor, get_processor
+
+            enabled_streams = list(VideoStream.objects.filter(enabled=True))
+            total = len(enabled_streams)
+            started = 0
+
+            for stream in enabled_streams:
+                try:
+                    processor = get_processor(stream.id)
+                    if processor and processor.is_running():
+                        logger.info(f"视频流处理器已在运行: {stream.id}")
+                        continue
+                    create_processor(stream)
+                    started += 1
+                except Exception as e:
+                    logger.error(f"启动视频流 {stream.id} 失败: {e}")
+
+            logger.info(f"服务启动：成功启动 {started}/{total} 个视频流")
+        except Exception:
+            logger.exception("服务启动时加载并启动视频流失败")

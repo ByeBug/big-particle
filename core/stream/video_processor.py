@@ -177,6 +177,7 @@ class VideoStreamProcessor:
                         self._submit_to_algorithms(frame)
                 except queue.Full:
                     # TODO 添加推理队列满 metric
+                    self.logger.warning(f"推理队列满，丢弃帧: {frame.frame_number}")
                     pass  # 推理队列满，丢弃帧
                 
                 # 尝试加入编码队列
@@ -185,6 +186,7 @@ class VideoStreamProcessor:
                         self.encode_queue.put_nowait(frame)
                 except queue.Full:
                     # TODO 添加编码队列满 metric
+                    self.logger.warning(f"编码队列满，丢弃帧: {frame.frame_number}")
                     pass  # 编码队列满，丢弃帧
                 
                 # 尝试加入保存队列
@@ -193,6 +195,7 @@ class VideoStreamProcessor:
                         self.save_queue.put_nowait(frame)
                 except queue.Full:
                     # TODO 添加保存队列满 metric
+                    self.logger.warning(f"保存队列满，丢弃帧: {frame.frame_number}")
                     pass  # 保存队列满，丢弃帧
                 
             except Exception as e:
