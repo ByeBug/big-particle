@@ -45,9 +45,9 @@ const framePreviewSrc = ref('')
 const previewStreamId = ref<number | null>(null)
 
 const buildLatestFrameUrl = (streamId: number, bust = true) => {
-  const base = new URL(`/videostreams/${streamId}/latest_frame/`, http.defaults.baseURL)
-  if (bust) base.searchParams.set('ts', String(Date.now()))
-  return base.toString()
+  let url = `${http.defaults.baseURL}/videostreams/${streamId}/latest_frame/`
+  if (bust) url += `?ts=${Date.now()}`
+  return url
 }
 
 const openLatestFrame = (streamId: number) => {
@@ -90,11 +90,6 @@ const updateData = async (): Promise<boolean> => {
   try {
     const streamsRes = await listVideoStreams()
     const streams = streamsRes.results
-    for (const stream of streams) {
-      if (stream.id === 4) {
-        stream.enabled = true
-      }
-    }
     const ids = streams.map((s) => s.id)
     if (ids.length > 0) {
       // 获取统计数据

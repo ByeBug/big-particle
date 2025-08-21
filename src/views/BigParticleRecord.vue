@@ -89,8 +89,11 @@ onMounted(async () => {
 
 const resolveImageUrl = (path: string) => {
   if (!path) return ''
-  // TODO 返回临时拼接的 url
-  return `http://192.168.3.13/storage/big-particle-data${path}`
+  // 开发环境拼接 url
+  if (import.meta.env.DEV) {
+    return `http://192.168.3.13/storage/big-particle-data${path}`
+  }
+  return `${window.location.origin}${path}`
 }
 
 type PreviewMode = 'rendered' | 'original'
