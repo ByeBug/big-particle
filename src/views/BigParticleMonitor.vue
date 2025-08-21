@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 import dayjs from 'dayjs'
 import { listVideoStreams, type VideoStreamItem } from '@/services/videostreams'
+import { http } from '@/services/http'
 import { useRouter } from 'vue-router'
 import { getActiveBigParticleAlgorithmConfig } from '@/services/systemConfigs'
 import { getBigParticleStats } from '@/services/bigParticleStats'
@@ -37,6 +38,30 @@ type RangeStatsMap = { recent_30s: Map<number, number>; today: Map<number, numbe
 type StreamStatsMap = Map<number, RangeStatsMap>
 const streamStats = ref<StreamStatsMap>(new Map())
 const router = useRouter()
+
+// 预览单帧图片
+const framePreviewVisible = ref(false)
+const framePreviewSrc = ref('')
+const previewStreamId = ref<number | null>(null)
+
+const buildLatestFrameUrl = (streamId: number, bust = true) => {
+  const base = new URL(`/videostreams/${streamId}/latest_frame/`, http.defaults.baseURL)
+  if (bust) base.searchParams.set('ts', String(Date.now()))
+  return base.toString()
+}
+
+const openLatestFrame = (streamId: number) => {
+  framePreviewSrc.value = buildLatestFrameUrl(streamId)
+  previewStreamId.value = streamId
+  framePreviewVisible.value = true
+}
+
+const refreshLatestFrame = () => {
+  if (previewStreamId.value == null) return
+  framePreviewSrc.value = buildLatestFrameUrl(previewStreamId.value)
+}
+
+const canOpenImage = (s: StreamWithAlarm) => s.enabled && s.status == 'normal'
 
 const createEmptyRangeStats = (): RangeStatsMap => ({
   recent_30s: new Map(),
@@ -372,12 +397,27 @@ onDeactivated(() => {
               </div>
             </div>
             <template #footer>
-              <!-- footer 留空 -->
+              <el-button
+                size="small"
+                :disabled="!canOpenImage(stream)"
+                @click="openLatestFrame(stream.id)"
+                >查看图像</el-button
+              >
             </template>
           </el-card>
         </div>
       </div>
     </div>
+    <el-dialog v-model="framePreviewVisible" width="65%" top="5vh" :show-close="false">
+      <div class="dialog-vertical">
+        <div class="dialog-media">
+          <el-image :src="framePreviewSrc" fit="contain" style="width: 100%; height: 100%" />
+        </div>
+        <div class="dialog-ops">
+          <el-button @click="refreshLatestFrame">刷新</el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -572,5 +612,23 @@ onDeactivated(() => {
 
 .global-alert {
   margin-bottom: 12px;
+}
+
+.dialog-vertical {
+  /* 消除 dialog header 的 padding */
+  margin-top: -16px;
+}
+.dialog-media {
+  aspect-ratio: 16 / 9;
+  background: var(--el-fill-color-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.dialog-ops {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
 }
 </style>
