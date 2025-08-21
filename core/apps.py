@@ -34,7 +34,7 @@ class CoreConfig(AppConfig):
     def _delay_init(self):
         """延迟初始化，避免在 AppConfig.ready() 中访问数据库"""
         time.sleep(3)
-        from .stream.video_processor import start_cleanup_thread
+        from .stream.save_utils import start_cleanup_thread
         start_cleanup_thread()
         self._init_default_configs()
         self._start_enabled_streams()
@@ -75,16 +75,18 @@ class CoreConfig(AppConfig):
         # 惰性导入，避免在 App 未就绪时导入引用 models 的模块
         from .stream.video_processor import shutdown_all_processors
         from .stream.algorithm.thread_pool import shutdown_all_thread_pools
+        from .stream.save_utils import stop_cleanup_thread
         def shutdown_handler(signum, frame):
             """处理关闭信号"""
             logger.info(f"接收到信号 {signum}，正在关闭...")
             try:
-                shutdown_all_processors()
                 shutdown_all_thread_pools()
-            except Exception as e:
-                logger.error(f"关闭时出错: {e}")
+                stop_cleanup_thread()
+                shutdown_all_processors()
+            except:
+                logger.exception(f"关闭时出错")
             
-            # 调用默认的退出处理
+            logging.shutdown()
             sys.exit(0)
         
         # 注册常见的退出信号
