@@ -19,6 +19,7 @@ dependencies = [
     "django-cors-headers>=4.7.0",
     "djangorestframework>=3.16.0",
     # paddle preprocess 中使用 imgaug，但 imgaug 不支持 numpy 2.0，因此降低 numpy、opencv 版本
+    "gunicorn>=23.0.0",
     "imgaug>=0.4.0",
     "numpy<2",
     "opencv-python<=4.6",

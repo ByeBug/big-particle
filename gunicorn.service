@@ -1,0 +1,12 @@
+[Unit]
+Description=大颗粒项目后端
+After=network.target
+
+[Service]
+WorkingDirectory=/home/vlight/dev/big-particle/backend
+ExecStart=/home/vlight/dev/big-particle/backend/.venv/bin/gunicorn
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

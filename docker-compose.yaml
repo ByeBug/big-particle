@@ -27,6 +27,14 @@ services:
     ports:
       - "8181:80"
 
+  nginx:
+    image: nginx:1.28-alpine
+    restart: always
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - /data/big-particle-data:/data/big-particle-data
+    network_mode: host
+
   zlmediakit:
     image: zlmediakit/zlmediakit:master
     container_name: zlmediakit
