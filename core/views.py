@@ -255,7 +255,7 @@ class BigParticleStatsAPIView(APIView):
         size_levels = self._get_size_levels()
         
         # 计算时间边界
-        now = timezone.now()
+        now = timezone.localtime(timezone.now())
         thirty_seconds_ago = now - timedelta(seconds=30)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)

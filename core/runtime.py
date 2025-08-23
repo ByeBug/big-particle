@@ -30,7 +30,7 @@ def start_background_services():
 
 def stop_background_services():
     with _RUNTIME_LOCK:
-        logging.info("停止后台线程")
+        logger.info("停止后台线程")
         shutdown_all_processors()
         ModelManager.cleanup_all()
         shutdown_all_thread_pools()

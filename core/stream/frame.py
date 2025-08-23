@@ -120,7 +120,10 @@ class DecodedFrame:
         """
         with self._canvas_lock:
             if self._canvas is None:
-                self._canvas = self.ocv_image.copy()
+                if self.is_gray:
+                    self._canvas = cv2.cvtColor(self.ocv_image, cv2.COLOR_GRAY2BGR)
+                else:
+                    self._canvas = self.ocv_image.copy()
             return self._canvas
     
     def has_canvas(self) -> bool:

@@ -119,7 +119,7 @@ class BigParticleAlgo:
                     if instance.score < self.threshold:
                         continue
                     # TODO 计算粒径，单位为毫米
-                    instance.size = instance.right - instance.left
+                    instance.size = min(instance.right - instance.left, instance.bottom - instance.top) * 0.4
                     # 忽略小于尺寸阈值的颗粒
                     if instance.size < self.size_threshold:
                         continue
