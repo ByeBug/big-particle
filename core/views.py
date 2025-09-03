@@ -1,5 +1,6 @@
 import logging
 import cv2
+import numpy as np
 from django.contrib.auth.models import User, Group
 from django.db import connection
 from django.http import HttpResponse
@@ -11,13 +12,15 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from datetime import timedelta
 
-from .models import VideoStream, AlgoBigParticleRecord, SystemConfig
+from .models import VideoStream, AlgoBigParticleRecord, AlgoBlacklist, SystemConfig, OssObject
 from .serializers import (
     UserSerializer, GroupSerializer, VideoStreamSerializer,
     BigParticleRecordQuerySerializer, BigParticleRecordResponseSerializer,
-    BigParticleStatsQuerySerializer, SystemConfigSerializer
+    BigParticleStatsQuerySerializer, SystemConfigSerializer,
+    AlgoBlacklistSerializer
 )
 from .stream.video_processor import create_processor, remove_processor, get_processor
+from .stream.save_utils import save_image, OSS_DIR, BLACKLIST_DIR, delete_oss_images
 
 logger = logging.getLogger(__name__)
 
@@ -385,3 +388,120 @@ class SystemConfigViewSet(viewsets.ModelViewSet):
         """获取所有配置类型"""
         types = SystemConfig.objects.values_list('config_type', flat=True).distinct()
         return Response(list(types))
+
+
+class AlgoBlacklistViewSet(viewsets.ModelViewSet):
+    """算法黑名单视图集"""
+    # TODO 算法加载黑名单，并进行过滤
+    
+    queryset = AlgoBlacklist.objects.all()
+    serializer_class = AlgoBlacklistSerializer
+    
+    def get_queryset(self):
+        """根据查询参数过滤黑名单"""
+        queryset = self.queryset
+        
+        # 根据流ID过滤
+        stream_id = self.request.query_params.get('stream_id')
+        if stream_id:
+            queryset = queryset.filter(stream_id=stream_id)
+        
+        # 根据算法名称过滤
+        algo_name = self.request.query_params.get('algo_name')
+        if algo_name:
+            queryset = queryset.filter(algo_name=algo_name)
+        
+        # 根据是否启用过滤
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            if is_active.lower() in ['true', '1']:
+                queryset = queryset.filter(is_active=True)
+            elif is_active.lower() in ['false', '0']:
+                queryset = queryset.filter(is_active=False)
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        """创建黑名单"""
+        validated_data = serializer.validated_data
+        original_record_id = validated_data.pop('original_record_id')
+        original_instance_id = validated_data.pop('original_instance_id')
+        
+        # 1. 根据 original_record_id 获取原始记录
+        try:
+            original_record = AlgoBigParticleRecord.objects.get(id=original_record_id)
+        except AlgoBigParticleRecord.DoesNotExist:
+            raise ValidationError(f"原始记录不存在: {original_record_id}")
+        
+        # 2. 从检测结果中提取对应实例
+        if not original_record.result:
+            raise ValidationError("原始记录中没有检测结果数据")
+        
+        target_instance = None
+        for instance_data in original_record.result:
+            if instance_data.get('id', None) == original_instance_id:
+                target_instance = instance_data
+                break
+        
+        if not target_instance:
+            raise ValidationError(f"在检测结果中未找到 original_instance_id: {original_instance_id}")
+        
+        # 3. 获取原图并生成黑名单区域的渲染图和小图
+        algo_name = 'big_particle'  # TODO 临时固定为 big_particle，后续根据记录获取算法名
+        original_image_id = original_record.original_image_id
+        rendered_image_id = None
+        cropped_image_id = None
+        
+        # 获取原图
+        original_oss = OssObject.objects.get(id=original_image_id)
+        original_image_path = OSS_DIR / original_oss.file_path
+        original_image = cv2.imread(str(original_image_path))
+
+        # 提取边界框
+        left = target_instance['left']
+        top = target_instance['top']
+        right = target_instance['right']
+        bottom = target_instance['bottom']
+        
+        # 生成渲染图（在原图上画框）
+        rendered_image = original_image.copy()
+        cv2.rectangle(rendered_image, (left, top), (right, bottom), (0, 0, 255), 2)
+        
+        # 保存渲染图
+        rendered_file_name = BLACKLIST_DIR / f"stream_{original_record.stream_id}_{original_record.id}_{original_instance_id}_rendered.jpg"
+        rendered_image_id = save_image(rendered_image, str(rendered_file_name))
+            
+        # 裁剪小图（检测区域）
+        cropped_image = original_image[top:bottom, left:right]
+        # 保存小图
+        cropped_file_name = BLACKLIST_DIR / f"stream_{original_record.stream_id}_{original_record.id}_{original_instance_id}_cropped.png"
+        cropped_image_id = save_image(cropped_image, str(cropped_file_name))
+        
+        # 4. 保存黑名单记录
+        serializer.save(
+            stream_id=original_record.stream_id,
+            stream_name=original_record.stream_name,
+            algo_name=algo_name,
+            bbox={'left': left, 'top': top, 'right': right, 'bottom': bottom},
+            rendered_image_id=rendered_image_id,
+            cropped_image_id=cropped_image_id,
+            original_record_id=original_record_id,
+            original_instance_id=original_instance_id,
+            original_instance=target_instance
+        )
+    
+    def perform_destroy(self, instance):
+        """删除黑名单"""
+        # 删除相关图片文件
+        image_ids = []
+        if instance.rendered_image_id:
+            image_ids.append(instance.rendered_image_id)
+        if instance.cropped_image_id:
+            image_ids.append(instance.cropped_image_id)
+        
+        if image_ids:
+            result = delete_oss_images(image_ids)
+            logger.info(f"黑名单记录 {instance.id} 删除图片文件结果: "
+                       f"成功 {result['deleted_count']} 个，失败 {result['failed_count']} 个")
+        
+        instance.delete()

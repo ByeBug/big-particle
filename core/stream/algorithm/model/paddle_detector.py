@@ -276,11 +276,11 @@ class PaddleDetector:
             im_boxes = im_boxes[expect_boxes, :]
 
             for box in im_boxes:
-                clsid, score, bbox = int(box[0]), box[1], box[2:]
+                clsid, score, bbox = int(box[0]), round(float(box[1]), 2), box[2:]
                 # 模型输出的坐标已经是原图的尺寸
                 xmin, ymin, xmax, ymax = bbox
                 im_instances.append(Instance(clsid, self.label_list[clsid], score,
-                    left=int(xmin), top=int(ymin), right=int(xmax), bottom=int(ymax)))
+                    left=round(xmin), top=round(ymin), right=round(xmax), bottom=round(ymax)))
             
             batch_im_instances.append(im_instances)
             

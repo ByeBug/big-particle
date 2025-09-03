@@ -2,7 +2,7 @@ import re
 import logging
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
-from .models import VideoStream, AlgoBigParticleRecord, OssObject, SystemConfig
+from .models import VideoStream, AlgoBigParticleRecord, AlgoBlacklist, OssObject, SystemConfig
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +226,7 @@ class BigParticleRecordResponseSerializer(serializers.ModelSerializer):
             'min_size',
             'max_size',
             'detected_at',
+            'result',
             'original_image_url',
             'rendered_image_url'
         ]
@@ -390,3 +391,93 @@ class SystemConfigSerializer(serializers.HyperlinkedModelSerializer):
                 config_data['alarm_threshold'] = sorted(alarm_threshold, key=lambda x: x['size_level'])
 
         return data
+
+
+class AlgoBlacklistSerializer(serializers.HyperlinkedModelSerializer):
+    """算法黑名单序列化器"""
+    
+    rendered_image_url = serializers.SerializerMethodField()
+    cropped_image_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AlgoBlacklist
+        fields = [
+            'url',
+            'id',
+            'stream_id',
+            'stream_name',
+            'algo_name',
+            'bbox',
+            'description',
+            'iou_threshold',
+            'hist_threshold',
+            'rendered_image_url',
+            'cropped_image_url',
+            'rendered_image_id',
+            'cropped_image_id',
+            'original_record_id',
+            'original_instance_id',
+            'original_instance',
+            'is_active',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = [
+            'url', 'id', 'stream_id', 'stream_name', 'algo_name', 'bbox',
+            'rendered_image_url', 'cropped_image_url', 'rendered_image_id', 
+            'cropped_image_id', 'original_instance', 'created_at', 'updated_at'
+        ]
+    
+    def validate(self, data):
+        """验证数据"""
+        if not self.instance:  # 创建操作
+            # 创建时必须提供 original_record_id 和 original_instance_id
+            if 'original_record_id' not in data:
+                raise serializers.ValidationError("创建黑名单时必须提供 original_record_id")
+            if 'original_instance_id' not in data:
+                raise serializers.ValidationError("创建黑名单时必须提供 original_instance_id")
+            
+            # 检查 original_record_id 和 original_instance_id 的组合是否已存在
+            original_record_id = data['original_record_id']
+            original_instance_id = data['original_instance_id']
+            
+            existing = AlgoBlacklist.objects.filter(
+                original_record_id=original_record_id,
+                original_instance_id=original_instance_id
+            ).exists()
+            
+            if existing:
+                raise serializers.ValidationError(
+                    f"记录ID {original_record_id} + 实例ID {original_instance_id} 已在黑名单中"
+                )
+        else:  # 更新操作
+            # 忽略传入的 original_record_id 和 original_instance_id，不允许修改
+            data.pop('original_record_id', None)
+            data.pop('original_instance_id', None)
+        
+        if 'description' in data:
+            data['description'] = data['description'].strip()
+        
+        return data
+    
+    def get_rendered_image_url(self, obj):
+        """获取渲染图URL"""
+        if obj.rendered_image_id:
+            try:
+                oss_object = OssObject.objects.get(id=obj.rendered_image_id)
+                return oss_object.get_url()
+            except OssObject.DoesNotExist:
+                logger.warning(f"渲染图OSS对象不存在: blacklist_id={obj.id}, oss_id={obj.rendered_image_id}")
+                return None
+        return None
+    
+    def get_cropped_image_url(self, obj):
+        """获取小图URL"""
+        if obj.cropped_image_id:
+            try:
+                oss_object = OssObject.objects.get(id=obj.cropped_image_id)
+                return oss_object.get_url()
+            except OssObject.DoesNotExist:
+                logger.warning(f"小图OSS对象不存在: blacklist_id={obj.id}, oss_id={obj.cropped_image_id}")
+                return None
+        return None

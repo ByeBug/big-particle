@@ -123,6 +123,12 @@ class AlgoBigParticleRecord(models.Model):
         help_text='检测时间'
     )
     
+    # 算法结果
+    result = models.JSONField(
+        null=True,
+        help_text='算法结果（JSON格式）'
+    )
+    
     # 图像关联
     original_image_id = models.PositiveIntegerField(
         null=True,
@@ -155,11 +161,105 @@ class AlgoBigParticleRecord(models.Model):
         return f'{self.stream_name} - {self.detected_at.strftime("%Y-%m-%d %H:%M:%S")}'
 
 
+class AlgoBlacklist(models.Model):
+    """
+    算法黑名单表
+    
+    用于存储需要过滤的检测区域，避免对固定静态区域的误报。
+    通过 IoU 和直方图相似度来过滤检测结果。
+    """
+    
+    # 关联信息
+    stream_id = models.PositiveIntegerField(
+        help_text='所属视频流ID'
+    )
+    
+    stream_name = models.CharField(
+        max_length=100,
+        help_text='视频流名称（冗余保存）'
+    )
+
+    algo_name = models.CharField(
+        max_length=50,
+        help_text='算法名称'
+    )
+
+    # 黑名单区域
+    bbox = models.JSONField(
+        help_text='黑名单区域 {left, top, right, bottom}'
+    )
+
+    # 描述信息
+    description = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='描述信息'
+    )
+    
+    # 过滤参数
+    iou_threshold = models.FloatField(
+        default=0.8,
+        help_text='IoU阈值'
+    )
+
+    hist_threshold = models.FloatField(
+        default=0.8,
+        help_text='直方图相似度阈值'
+    )
+
+    # 关联图片
+    rendered_image_id = models.PositiveIntegerField(
+        help_text='黑名单区域渲染图OSS对象ID'
+    )
+
+    cropped_image_id = models.PositiveIntegerField(
+        help_text='黑名单区域小图OSS对象ID'
+    )
+
+    # 原始记录
+    original_record_id = models.PositiveIntegerField(
+        help_text='原始记录ID'
+    )
+
+    original_instance_id = models.PositiveIntegerField(
+        help_text='原始记录 instance id'
+    )
+
+    original_instance = models.JSONField(
+        help_text='原始检测实例'
+    )
+    
+    # 状态管理
+    is_active = models.BooleanField(
+        default=True,
+        help_text='是否启用此黑名单规则'
+    )
+    
+    # 时间信息
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='创建时间'
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text='更新时间'
+    )
+    
+    class Meta:
+        db_table = 'core_algo_blacklist'
+        ordering = ['-created_at']
+        
+    def __str__(self):
+        return f'{self.stream_name} - 黑名单区域 ({self.bbox})'
+
+
 class OssObject(models.Model):
     """
     OSS对象表
     
     用于管理本地存储的文件。
+    TODO 添加 machine_sn 字段，用于多机存储；删除 deleted_at 字段，不更新该表数据，以便 timescaledb 压缩存储
     """
     
     # 文件信息

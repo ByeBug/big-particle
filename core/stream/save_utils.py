@@ -23,12 +23,14 @@ OSS_DIR = STORAGE_DIR / "oss"
 ORIGINAL_DIR = OSS_DIR / "original_frames"
 RENDERED_DIR = OSS_DIR / "rendered_frames"
 SAVED_FRAMES_DIR = STORAGE_DIR / "saved_frames"
+BLACKLIST_DIR = OSS_DIR / "blacklists"
 SAFE_FREE_SPACE_GB = 400  # 安全剩余空间阈值（GB）
 
 
 def save_original_frame(frame: 'DecodedFrame') -> Optional[int]:
     """
     保存原始帧到本地并创建OSS对象记录
+    TODO 每个算法记录的原始帧改为独立存储，以避免删除某个记录时影响其他算法
     """
     try:
         file_name = f"stream_{frame.stream_id}_{frame.timestamp}.png"
@@ -54,32 +56,28 @@ def save_original_frame(frame: 'DecodedFrame') -> Optional[int]:
         return None
 
 
-def save_rendered_image(image, file_name: str) -> Optional[int]:
+def save_image(image, file_name: str) -> Optional[int]:
     """
     保存渲染帧到本地并创建OSS对象记录
     """
-    try:
-        file_path = RENDERED_DIR / file_name
+    file_path = Path(file_name)
 
-        # 确保保存目录存在
-        file_path.parent.mkdir(parents=True, exist_ok=True)
+    # 确保保存目录存在
+    file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        success = cv2.imwrite(str(file_path), image)
-        if not success:
-            logger.error(f"保存渲染帧失败: {file_path}")
-            return None
-        
-        content_type = "image/jpeg" if file_name.endswith(".jpg") else "image/png"
-        oss_object = OssObject.objects.create(
-            file_path=str(file_path.relative_to(OSS_DIR)),
-            file_name=file_name,
-            content_type=content_type
-        )
-
-        return oss_object.id
-    except Exception as e:
-        logger.error(f"保存渲染帧异常: {e}")
+    success = cv2.imwrite(str(file_path), image)
+    if not success:
+        logger.error(f"保存图片失败: {file_path}")
         return None
+    
+    content_type = "image/jpeg" if file_name.endswith(".jpg") else "image/png"
+    oss_object = OssObject.objects.create(
+        file_path=str(file_path.relative_to(OSS_DIR)),
+        file_name=file_name,
+        content_type=content_type
+    )
+
+    return oss_object.id
 
 
 def _get_free_space_gb(path: Path) -> float:
@@ -154,6 +152,7 @@ def _cleanup_storage_if_low_space():
     """清理逻辑：
     - 若空间不足首先逐个删除最旧的保存帧目录，至少保留最近3天，每删除一次重新判断空间
     - 若仍不足，则按批删除最旧的未删除OSS记录，每批1000条，删除后再次判断空间
+    TODO 删除最旧的算法记录的 oss 记录，因为 oss 中可能存储非算法记录的图片
     - 直到空间充足或无可删除项为止
     """
     free_gb = _get_free_space_gb(STORAGE_DIR)
@@ -239,3 +238,73 @@ def stop_cleanup_thread():
             logger.warning("清理线程未能在5秒内正常结束")
         else:
             logger.info("清理线程已停止")
+
+
+def delete_oss_images(image_ids: list) -> dict:
+    """
+    删除指定的OSS图片文件
+    
+    Args:
+        image_ids: OSS对象ID列表
+        
+    Returns:
+        dict: 包含删除结果的字典
+            {
+                'deleted_count': int,  # 成功删除的文件数量
+                'failed_count': int,   # 删除失败的文件数量
+                'deleted_files': list, # 成功删除的文件路径列表
+                'failed_files': list   # 删除失败的文件路径和错误信息列表
+            }
+    """
+    if not image_ids:
+        logger.info("没有需要删除的图片文件")
+        return {
+            'deleted_count': 0,
+            'failed_count': 0,
+            'deleted_files': [],
+            'failed_files': []
+        }
+    
+    # 批量查询OSS对象
+    oss_objects = OssObject.objects.filter(
+        id__in=image_ids,
+        deleted_at__isnull=True
+    )
+    
+    deleted_files = []
+    failed_files = []
+    
+    for oss_obj in oss_objects:
+        try:
+            # 构造完整文件路径
+            file_path = OSS_DIR / oss_obj.file_path
+            
+            # 删除物理文件
+            if file_path.exists():
+                file_path.unlink()
+                deleted_files.append(str(file_path))
+                logger.info(f"已删除图片文件: {file_path}")
+            else:
+                logger.warning(f"图片文件不存在: {file_path}")
+            
+            # 标记OSS对象为已删除
+            oss_obj.deleted_at = timezone.now()
+            oss_obj.save(update_fields=['deleted_at'])
+            
+        except Exception as e:
+            failed_files.append(f"{oss_obj.file_path}: {str(e)}")
+            logger.error(f"删除图片文件失败 {oss_obj.file_path}: {e}")
+    
+    result = {
+        'deleted_count': len(deleted_files),
+        'failed_count': len(failed_files),
+        'deleted_files': deleted_files,
+        'failed_files': failed_files
+    }
+    
+    if deleted_files:
+        logger.info(f"成功删除 {len(deleted_files)} 个图片文件")
+    if failed_files:
+        logger.error(f"删除 {len(failed_files)} 个图片文件失败: {failed_files}")
+    
+    return result

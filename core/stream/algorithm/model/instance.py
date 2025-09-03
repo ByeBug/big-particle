@@ -10,3 +10,17 @@ class Instance:
         self.top = top
         self.right = right
         self.bottom = bottom
+        self.id = 0     # 单帧中实例 id
+    
+    def to_dict(self):
+        '''转换为字典格式'''
+        return {
+            'id': self.id,
+            'label_id': self.label_id,
+            'label_name': self.label_name,
+            'score': round(self.score, 2),
+            'left': self.left,
+            'top': self.top,
+            'right': self.right,
+            'bottom': self.bottom,
+        }

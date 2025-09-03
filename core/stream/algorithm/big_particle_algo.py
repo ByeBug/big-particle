@@ -16,7 +16,7 @@ from ..frame import DecodedFrame
 from .model.instance import Instance
 from .model.paddle_detector import PaddleDetector
 from ..logging_utils import StreamLoggerAdapter
-from ..save_utils import save_rendered_image
+from ..save_utils import RENDERED_DIR, save_image
 from core.models import AlgoBigParticleRecord
 
 logger = logging.getLogger(__name__)
@@ -119,13 +119,15 @@ class BigParticleAlgo:
                     if instance.score < self.threshold:
                         continue
                     # TODO 计算粒径，单位为毫米
-                    instance.size = min(instance.right - instance.left, instance.bottom - instance.top) * 0.4
+                    instance.size = round(min(instance.right - instance.left, instance.bottom - instance.top) * 0.4)
                     # 忽略小于尺寸阈值的颗粒
                     if instance.size < self.size_threshold:
                         continue
-                    # 与上一帧做 IoU 去重，超过阈值则认为是同一颗粒，避免皮带未运行时重复记录同一颗粒
+                    # TODO 与黑名单做 IoU 去重
+                    # 与上一帧做 IoU 去重，超过阈值则认为是同一颗粒，避免皮带未运行时重复记录同一颗粒 TODO 会跳帧重复记录
                     if self._is_duplicate_with_prev(instance):
                         continue
+                    instance.id = len(self.instances)
                     self.instances.append(instance)
                 
                 self.prev_instances = self.instances
@@ -220,23 +222,28 @@ class BigParticleAlgo:
             min_size = min(sizes)
             max_size = max(sizes)
             
-            # 获取原图ID（多算法共享）
+            # 获取原图ID（多算法共享）TODO 不共享
             original_image_id = frame.get_original_image_id()
             
             rendered_image_id = None
             if frame.has_canvas():  # TODO 多算法时，切换为对原图再次渲染
-                file_name = f"{self.name}/stream_{frame.stream_id}_{frame.timestamp}.jpg"
-                rendered_image_id = save_rendered_image(frame.canvas, file_name)
+                file_name = RENDERED_DIR / f"{self.name}/stream_{frame.stream_id}_{frame.timestamp}.jpg"
+                try:
+                    rendered_image_id = save_image(frame.canvas, str(file_name))
+                except Exception as e:
+                    self.logger.error(f"保存渲染图失败: {e}")
 
             # 创建记录
             detected_at = datetime.fromtimestamp(frame.algo_running_info[self.name]['infer_start_time'],
                                                  tz=timezone.get_current_timezone())
+            result = [{**instance.to_dict(), 'size': instance.size} for instance in instances]
             record = AlgoBigParticleRecord.objects.create(
                 stream_id=frame.stream_id,
                 stream_name=frame.stream_name,
                 min_size=min_size,
                 max_size=max_size,
                 detected_at=detected_at,
+                result=result,
                 original_image_id=original_image_id,
                 rendered_image_id=rendered_image_id
             )
@@ -244,4 +251,4 @@ class BigParticleAlgo:
             self.logger.debug(f"保存大颗粒记录成功: record_id={record.id}")
             
         except Exception as e:
-            self.logger.error(f"保存大颗粒记录失败: error={e}")
+            self.logger.exception(f"保存大颗粒记录失败: error={e}")
