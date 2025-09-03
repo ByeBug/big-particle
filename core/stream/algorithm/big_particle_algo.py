@@ -16,7 +16,7 @@ from ..frame import DecodedFrame
 from .model.instance import Instance
 from .model.paddle_detector import PaddleDetector
 from ..logging_utils import StreamLoggerAdapter
-from ..save_utils import RENDERED_DIR, save_image
+from ..save_utils import ORIGINAL_DIR, RENDERED_DIR, save_image
 from core.models import AlgoBigParticleRecord
 
 logger = logging.getLogger(__name__)
@@ -222,14 +222,19 @@ class BigParticleAlgo:
             min_size = min(sizes)
             max_size = max(sizes)
             
-            # 获取原图ID（多算法共享）TODO 不共享
-            original_image_id = frame.get_original_image_id()
+            # 获取原图ID（多算法不共享，避免删除算法记录时影响其他算法）
+            original_image_id = None
+            file_path = ORIGINAL_DIR / f"{self.name}/stream_{frame.stream_id}_{frame.timestamp}.png"
+            try:
+                original_image_id = save_image(frame.ocv_image, file_path)
+            except Exception as e:
+                self.logger.error(f"保存原始图失败: {e}")
             
             rendered_image_id = None
             if frame.has_canvas():  # TODO 多算法时，切换为对原图再次渲染
-                file_name = RENDERED_DIR / f"{self.name}/stream_{frame.stream_id}_{frame.timestamp}.jpg"
+                file_path = RENDERED_DIR / f"{self.name}/stream_{frame.stream_id}_{frame.timestamp}.jpg"
                 try:
-                    rendered_image_id = save_image(frame.canvas, str(file_name))
+                    rendered_image_id = save_image(frame.canvas, file_path)
                 except Exception as e:
                     self.logger.error(f"保存渲染图失败: {e}")
 

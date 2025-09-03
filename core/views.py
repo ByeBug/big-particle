@@ -469,13 +469,13 @@ class AlgoBlacklistViewSet(viewsets.ModelViewSet):
         
         # 保存渲染图
         rendered_file_name = BLACKLIST_DIR / f"stream_{original_record.stream_id}_{original_record.id}_{original_instance_id}_rendered.jpg"
-        rendered_image_id = save_image(rendered_image, str(rendered_file_name))
+        rendered_image_id = save_image(rendered_image, rendered_file_name)
             
         # 裁剪小图（检测区域）
         cropped_image = original_image[top:bottom, left:right]
         # 保存小图
         cropped_file_name = BLACKLIST_DIR / f"stream_{original_record.stream_id}_{original_record.id}_{original_instance_id}_cropped.png"
-        cropped_image_id = save_image(cropped_image, str(cropped_file_name))
+        cropped_image_id = save_image(cropped_image, cropped_file_name)
         
         # 4. 保存黑名单记录
         serializer.save(

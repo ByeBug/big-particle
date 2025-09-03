@@ -77,10 +77,6 @@ class DecodedFrame:
         # 画布相关属性
         self._canvas: Optional[np.ndarray] = None
         self._canvas_lock = threading.Lock()
-        
-        # 原图保存相关
-        self._original_image_id: Optional[int] = None
-        self._original_image_lock = threading.Lock()
     
     @property
     def shape(self) -> tuple:
@@ -138,19 +134,6 @@ class DecodedFrame:
         """
         with self._canvas_lock:
             return self._canvas is not None
-    
-    def get_original_image_id(self) -> Optional[int]:
-        """
-        获取原图ID（线程安全，避免重复保存）
-        
-        Returns:
-            int: 原图OSS对象ID
-        """
-        with self._original_image_lock:
-            if self._original_image_id is None:
-                from .save_utils import save_original_frame
-                self._original_image_id = save_original_frame(self)
-            return self._original_image_id
     
     def save(self, file_path: str) -> bool:
         """

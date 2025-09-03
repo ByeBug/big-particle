@@ -7,13 +7,11 @@ import shutil
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 import cv2
 from django.utils import timezone
 
 from core.models import OssObject
-if TYPE_CHECKING:
-    from .frame import DecodedFrame
 
 logger = logging.getLogger(__name__)
 
@@ -27,40 +25,12 @@ BLACKLIST_DIR = OSS_DIR / "blacklists"
 SAFE_FREE_SPACE_GB = 400  # 安全剩余空间阈值（GB）
 
 
-def save_original_frame(frame: 'DecodedFrame') -> Optional[int]:
-    """
-    保存原始帧到本地并创建OSS对象记录
-    TODO 每个算法记录的原始帧改为独立存储，以避免删除某个记录时影响其他算法
-    """
-    try:
-        file_name = f"stream_{frame.stream_id}_{frame.timestamp}.png"
-        file_path = ORIGINAL_DIR / file_name
-
-        # 确保保存目录存在
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        success = cv2.imwrite(str(file_path), frame.ocv_image)
-        if not success:
-            logger.error(f"保存原始帧失败: {file_path}")
-            return None
-        
-        oss_object = OssObject.objects.create(
-            file_path=str(file_path.relative_to(OSS_DIR)),
-            file_name=file_name,
-            content_type="image/png"
-        )
-        
-        return oss_object.id
-    except Exception as e:
-        logger.error(f"保存帧异常: {e}")
-        return None
-
-
-def save_image(image, file_name: str) -> Optional[int]:
+def save_image(image, file_path: str | Path) -> Optional[int]:
     """
     保存渲染帧到本地并创建OSS对象记录
     """
-    file_path = Path(file_name)
+    if isinstance(file_path, str):
+        file_path = Path(file_path)
 
     # 确保保存目录存在
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -70,10 +40,10 @@ def save_image(image, file_name: str) -> Optional[int]:
         logger.error(f"保存图片失败: {file_path}")
         return None
     
-    content_type = "image/jpeg" if file_name.endswith(".jpg") else "image/png"
+    content_type = "image/jpeg" if file_path.name.endswith(".jpg") else "image/png"
     oss_object = OssObject.objects.create(
         file_path=str(file_path.relative_to(OSS_DIR)),
-        file_name=file_name,
+        file_name=file_path.name,
         content_type=content_type
     )
 
@@ -118,41 +88,55 @@ def _list_saved_frame_dirs_older_than(cutoff_dt: datetime):
 
 
 def _cleanup_old_oss_objects(max_count: int = 1000) -> int:
-    """清理最旧的未标记删除的 OSS 记录，删除本地文件并设置 deleted_at，返回处理数量"""
+    """
+    清理最旧的算法记录关联的原图和渲染图，算法记录保留
+    
+    清理策略：
+    1. 获取最旧的 max_count 条算法记录
+    2. 收集这些记录关联的原图和渲染图的 oss_id
+    3. 删除对应的 OSS 对象（文件和数据库记录）
+    TODO 由于未删除算法记录，因此每次都从最旧的算法记录开始清理，即使它们的关联图片已删除
+      考虑在运行状态表中，记录最后被清理的记录 id，下次从该记录开始清理
+    
+    Returns:
+        int: 处理的算法记录数量
+    """
     try:
-        qs = OssObject.objects.filter(deleted_at__isnull=True).order_by('created_at')[:max_count]
-        now = timezone.now()
-        processed = 0
-        for obj in qs:
-            try:
-                file_path = OSS_DIR / obj.file_path
-                # 尝试删除文件
-                try:
-                    if file_path.exists():
-                        file_path.unlink()
-                except Exception as remove_err:
-                    logger.error(f"删除文件失败 {file_path}: {remove_err}")
-
-                # 标记记录为已删除
-                obj.deleted_at = now
-                obj.save(update_fields=['deleted_at'])
-                processed += 1
-            except Exception as e:
-                logger.error(f"处理 OSS 记录失败 id={obj.id}: {e}")
-                continue
-        if processed:
-            logger.info(f"已清理最旧的 OSS 记录 {processed}/{max_count} 条")
-        return processed
+        from ..models import AlgoBigParticleRecord
+        
+        # 1. 获取最旧的算法记录
+        records = AlgoBigParticleRecord.objects.order_by('detected_at')[:max_count]
+        records_list = list(records)
+        records_count = len(records_list)
+        
+        if not records_list:
+            return 0
+        
+        # 2. 收集所有需要删除的图片 ID
+        image_ids = set()
+        for record in records_list:
+            if record.original_image_id:
+                image_ids.add(record.original_image_id)
+            if record.rendered_image_id:
+                image_ids.add(record.rendered_image_id)
+        
+        # 3. 删除图片文件和 OSS 记录
+        if image_ids:
+            result = delete_oss_images(list(image_ids))
+            logger.info(f"删除图片结果: 成功 {result['deleted_count']} 个，失败 {result['failed_count']} 个")
+        
+        logger.info(f"已清理最旧的算法记录 {records_count} 条，关联图片 {len(image_ids)} 个")
+        return records_count
+        
     except Exception as e:
-        logger.error(f"查询或清理 OSS 记录失败: {e}")
+        logger.error(f"清理算法记录失败: {e}")
         return 0
 
 
 def _cleanup_storage_if_low_space():
     """清理逻辑：
     - 若空间不足首先逐个删除最旧的保存帧目录，至少保留最近3天，每删除一次重新判断空间
-    - 若仍不足，则按批删除最旧的未删除OSS记录，每批1000条，删除后再次判断空间
-    TODO 删除最旧的算法记录的 oss 记录，因为 oss 中可能存储非算法记录的图片
+    - 若仍不足，则按批删除最旧的算法记录，每批1000条，删除后再次判断空间
     - 直到空间充足或无可删除项为止
     """
     free_gb = _get_free_space_gb(STORAGE_DIR)

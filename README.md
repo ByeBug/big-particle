@@ -11,8 +11,7 @@
 - 大颗粒对上一帧去重，可能跳帧重复
 - 定时读取黑名单，过滤模型结果
 - oss 调整
-  - 取消 deleted_at 软删除
-  - 调整列 storage_type、bucket、object_key
+  - 添加列 storage_type、bucket，以支持 oss 存储
   - 清理逻辑改为根据算法记录清理
 - 通用算法记录表 + 特定算法记录表
 - 告警表

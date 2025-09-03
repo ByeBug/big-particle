@@ -258,14 +258,31 @@ class OssObject(models.Model):
     """
     OSS对象表
     
-    用于管理本地存储的文件。
-    TODO 添加 machine_sn 字段，用于多机存储；删除 deleted_at 字段，不更新该表数据，以便 timescaledb 压缩存储
+    用于管理存储的文件。
     """
+
+    # 存储类型
+    class StorageType(models.TextChoices):
+        LOCAL = 'local', '本地'
+        OSS = 'oss', 'OSS'
+    
+    storage_type = models.CharField(
+        max_length=20,
+        choices=StorageType.choices,
+        default=StorageType.LOCAL,
+        help_text='存储类型'
+    )
     
     # 文件信息
+    bucket = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text='存储桶'
+    )
+
     file_path = models.CharField(
         max_length=500,
-        unique=True,
         help_text='文件存储路径'
     )
     
