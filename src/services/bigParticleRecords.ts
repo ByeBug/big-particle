@@ -15,8 +15,8 @@ export interface ListBigParticleRecordsParams extends Record<string, unknown> {
   stream_ids?: number[] | string
   start_time?: string
   end_time?: string
-  min_max_size?: number
-  max_max_size?: number
+  min_size?: number
+  max_size?: number
   page?: number
 }
 

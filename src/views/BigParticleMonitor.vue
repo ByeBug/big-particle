@@ -224,8 +224,8 @@ const goToRecordWithFilters = (streamId: number, levelIndex: number) => {
     name: 'record',
     query: {
       stream_ids: String(streamId),
-      min_max_size: String(min),
-      ...(max ? { max_max_size: String(max) } : {}),
+      min_size: String(min),
+      ...(max ? { max_size: String(max) } : {}),
       start_time: start.format('YYYY-MM-DDTHH:mm:ss'),
       end_time: end.format('YYYY-MM-DDTHH:mm:ss'),
     },

@@ -22,8 +22,8 @@ const selectedRecord = ref<BigParticleRecordItem | null>(null)
 const streams = ref<VideoStreamItem[]>([])
 const filters = ref({
   streamIds: [] as number[],
-  minMaxSize: undefined as number | undefined,
-  maxMaxSize: undefined as number | undefined,
+  minSize: undefined as number | undefined,
+  maxSize: undefined as number | undefined,
   timeRange: [] as [Date, Date] | [],
 })
 
@@ -42,8 +42,8 @@ const fetchRecords = async (newPage?: number) => {
     const res = await listBigParticleRecords({
       page: page.value,
       stream_ids: filters.value.streamIds,
-      min_max_size: filters.value.minMaxSize,
-      max_max_size: filters.value.maxMaxSize,
+      min_size: filters.value.minSize,
+      max_size: filters.value.maxSize,
       start_time: formatLocalIso(start),
       end_time: formatLocalIso(end),
     })
@@ -75,13 +75,13 @@ onMounted(async () => {
   // 解析来自路由的预设条件
   const q = new URLSearchParams(location.search)
   const streamIds = q.get('stream_ids')
-  const min = q.get('min_max_size')
-  const max = q.get('max_max_size')
+  const min = q.get('min_size')
+  const max = q.get('max_size')
   const start = q.get('start_time')
   const end = q.get('end_time')
   if (streamIds) filters.value.streamIds = streamIds.split(',').map((s) => Number(s))
-  if (min) filters.value.minMaxSize = Number(min)
-  if (max) filters.value.maxMaxSize = Number(max)
+  if (min) filters.value.minSize = Number(min)
+  if (max) filters.value.maxSize = Number(max)
   if (start && end) filters.value.timeRange = [dayjs(start).toDate(), dayjs(end).toDate()]
 
   await fetchRecords()
@@ -175,7 +175,7 @@ const nextRecord = () => moveTo(1)
         </el-form-item>
         <el-form-item label="粒径范围" style="min-width: 290px">
           <el-input-number
-            v-model="filters.minMaxSize"
+            v-model="filters.minSize"
             class="max-size-input"
             :min="0"
             placeholder="最小"
@@ -184,7 +184,7 @@ const nextRecord = () => moveTo(1)
           />
           <span class="range-sep">-</span>
           <el-input-number
-            v-model="filters.maxMaxSize"
+            v-model="filters.maxSize"
             class="max-size-input"
             :min="0"
             placeholder="最大"
@@ -209,8 +209,8 @@ const nextRecord = () => moveTo(1)
             @click="
               () => {
                 filters.streamIds = []
-                filters.minMaxSize = undefined
-                filters.maxMaxSize = undefined
+                filters.minSize = undefined
+                filters.maxSize = undefined
                 filters.timeRange = [startOf7DaysAgo(), endOfToday()]
                 fetchRecords(1)
               }
@@ -272,13 +272,19 @@ const nextRecord = () => moveTo(1)
             class="preview-img layer"
             :src="renderedUrl"
             fit="contain"
-            :style="{ opacity: previewMode === 'rendered' ? 1 : 0 }"
+            :style="{
+              opacity: previewMode === 'rendered' ? 1 : 0,
+              zIndex: previewMode === 'rendered' ? 2 : 1,
+            }"
           />
           <el-image
             class="preview-img layer"
             :src="originalUrl"
             fit="contain"
-            :style="{ opacity: previewMode === 'original' ? 1 : 0 }"
+            :style="{
+              opacity: previewMode === 'original' ? 1 : 0,
+              zIndex: previewMode === 'original' ? 2 : 1,
+            }"
           />
         </div>
         <div class="dialog-meta">
