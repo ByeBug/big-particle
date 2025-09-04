@@ -113,15 +113,6 @@ class AlgoRecord(models.Model):
         help_text='算法名称'
     )
     
-    # 粒径信息（毫米为单位）
-    min_size = models.PositiveIntegerField(
-        help_text='最小粒径（毫米）'
-    )
-    
-    max_size = models.PositiveIntegerField(
-        help_text='最大粒径（毫米）'
-    )
-    
     # 时间信息
     detected_at = models.DateTimeField(
         help_text='检测时间'
@@ -159,7 +150,6 @@ class AlgoRecord(models.Model):
             models.Index(fields=['detected_at', 'stream_id']),
             models.Index(fields=['detected_at', 'stream_name']),
             models.Index(fields=['detected_at', 'algo_name']),
-            models.Index(fields=['detected_at', 'max_size']),
         ]
         
     def __str__(self):

@@ -215,12 +215,6 @@ class BigParticleAlgo:
             instances = frame.algo_results[self.name]
             if not instances:
                 return
-                
-            # 计算粒径范围
-            sizes = [instance.size for instance in instances]
-                
-            min_size = min(sizes)
-            max_size = max(sizes)
             
             # 获取原图ID（多算法不共享，避免删除算法记录时影响其他算法）
             original_image_id = None
@@ -246,8 +240,6 @@ class BigParticleAlgo:
                 stream_id=frame.stream_id,
                 stream_name=frame.stream_name,
                 algo_name=self.name,
-                min_size=min_size,
-                max_size=max_size,
                 detected_at=detected_at,
                 result=result,
                 original_image_id=original_image_id,
