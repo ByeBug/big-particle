@@ -365,8 +365,8 @@ class SystemConfigSerializer(serializers.HyperlinkedModelSerializer):
                     raise serializers.ValidationError("config_data 必须包含 alarm_threshold 字段")
                 if not isinstance(alarm_threshold, list):
                     raise serializers.ValidationError("alarm_threshold 必须是列表")
-                if len(alarm_threshold) < 1 or len(alarm_threshold) > 5:
-                    raise serializers.ValidationError("alarm_threshold 必须包含 1-5 个等级")
+                if len(alarm_threshold) < 1 or len(alarm_threshold) > 10:
+                    raise serializers.ValidationError("alarm_threshold 必须包含 1-10 个等级")
                 existing_size_levels = set()
                 for threshold in alarm_threshold:
                     if not isinstance(threshold, dict):
@@ -383,20 +383,42 @@ class SystemConfigSerializer(serializers.HyperlinkedModelSerializer):
                     if size_level < 0:
                         raise serializers.ValidationError(f"size_level 必须大于 0: {size_level}")
                     
-                    if not 'warning' in threshold or not 'error' in threshold:
-                        raise serializers.ValidationError(f"threshold 必须包含 warning 和 error 字段: {threshold}")
-                    warning_threshold = threshold.get('warning')
-                    error_threshold = threshold.get('error')
-                    if not isinstance(warning_threshold, int):
-                        raise serializers.ValidationError(f"warning 必须是整数: {warning_threshold}")
-                    if not isinstance(error_threshold, int):
-                        raise serializers.ValidationError(f"error 必须是整数: {error_threshold}")
-                    if warning_threshold <= 0:
-                        raise serializers.ValidationError(f"warning 必须大于 0: {warning_threshold}")
-                    if error_threshold <= 0:
-                        raise serializers.ValidationError(f"error 必须大于 0: {error_threshold}")
-                    if warning_threshold > error_threshold:
-                        raise serializers.ValidationError(f"warning 必须小于等于 error: {warning_threshold} > {error_threshold}")
+                    # 每个级别可以不设置 warning_count, warning_percentage, error_count, error_percentage
+                    warning_count_threshold = threshold.get('warning_count')
+                    error_count_threshold = threshold.get('error_count')
+                    if warning_count_threshold is not None:
+                        if not isinstance(warning_count_threshold, int):
+                            raise serializers.ValidationError(f"warning_count 必须是整数: {warning_count_threshold}")
+                        if warning_count_threshold <= 0:
+                            raise serializers.ValidationError(f"warning_count 必须大于 0: {warning_count_threshold}")
+                    if error_count_threshold is not None:
+                        if not isinstance(error_count_threshold, int):
+                            raise serializers.ValidationError(f"error_count 必须是整数: {error_count_threshold}")
+                        if error_count_threshold <= 0:
+                            raise serializers.ValidationError(f"error_count 必须大于 0: {error_count_threshold}")
+                    if warning_count_threshold is not None and error_count_threshold is not None:
+                        if warning_count_threshold > error_count_threshold:
+                            raise serializers.ValidationError(f"warning_count 必须小于等于 error_count: {warning_count_threshold} > {error_count_threshold}")
+                    
+                    warning_percentage_threshold = threshold.get('warning_percentage')
+                    error_percentage_threshold = threshold.get('error_percentage')
+                    if warning_percentage_threshold is not None:
+                        try:
+                            warning_percentage_threshold = float(warning_percentage_threshold)
+                        except:
+                            raise serializers.ValidationError(f"warning_percentage 无效: {warning_percentage_threshold}")
+                        if warning_percentage_threshold <= 0 or warning_percentage_threshold >= 100:
+                            raise serializers.ValidationError(f"warning_percentage 必须大于 0 且小于 100: {warning_percentage_threshold}")
+                    if error_percentage_threshold is not None:
+                        try:
+                            error_percentage_threshold = float(error_percentage_threshold)
+                        except:
+                            raise serializers.ValidationError(f"error_percentage 无效: {error_percentage_threshold}")
+                        if error_percentage_threshold <= 0 or error_percentage_threshold >= 100:
+                            raise serializers.ValidationError(f"error_percentage 必须大于 0 且小于 100: {error_percentage_threshold}")
+                    if warning_percentage_threshold is not None and error_percentage_threshold is not None:
+                        if warning_percentage_threshold > error_percentage_threshold:
+                            raise serializers.ValidationError(f"warning_percentage 必须小于等于 error_percentage: {warning_percentage_threshold} > {error_percentage_threshold}")
                 
                 config_data['alarm_threshold'] = sorted(alarm_threshold, key=lambda x: x['size_level'])
 

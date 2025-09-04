@@ -51,9 +51,12 @@ def _init_default_configs():
                     'config_data': {
                         'threshold': 0.7,       # 模型阈值
                         'alarm_threshold': [    # 不同等级的告警阈值
-                            {'size_level': 28, 'warning': 30, 'error': 50},
-                            {'size_level': 32, 'warning': 10, 'error': 20},
-                            {'size_level': 50, 'warning': 1, 'error': 10},
+                            {'size_level': 28,},
+                            {'size_level': 32,},
+                            {'size_level': 45, 'warning_percentage': 50, 'error_percentage': 60},
+                            {'size_level': 60, 'warning_percentage': 50, 'error_percentage': 60},
+                            {'size_level': 73, 'warning_percentage': 1, 'error_percentage': 5},
+                            {'size_level': 92, 'warning_percentage': 1, 'error_percentage': 5},
                         ]
                     },
                     'is_active': True
