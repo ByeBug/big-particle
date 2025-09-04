@@ -296,11 +296,11 @@ class BigParticleStatsAPIView(APIView):
         for i, level in enumerate(size_levels):
             if i == len(size_levels) - 1:
                 # 最后一个等级：>=该等级
-                case_when_clauses.append(f"COUNT(CASE WHEN max_size >= {level} THEN 1 END) AS count_{level}")
+                case_when_clauses.append(f"COUNT(CASE WHEN size >= {level} THEN 1 END) AS count_{level}")
             else:
                 # 中间等级：>=当前等级且<下一等级
                 next_level = size_levels[i + 1]
-                case_when_clauses.append(f"COUNT(CASE WHEN max_size >= {level} AND max_size < {next_level} THEN 1 END) AS count_{level}")
+                case_when_clauses.append(f"COUNT(CASE WHEN size >= {level} AND size < {next_level} THEN 1 END) AS count_{level}")
         
         case_when_sql = ",\n                    ".join(case_when_clauses)
         
@@ -311,7 +311,7 @@ class BigParticleStatsAPIView(APIView):
                 SELECT 
                     stream_id,
                     {case_when_sql}
-                FROM algo_big_particle_record
+                FROM algo_big_particle_detail
                 WHERE detected_at >= %s AND stream_id IN ({placeholders})
                 GROUP BY stream_id
             """
@@ -324,7 +324,7 @@ class BigParticleStatsAPIView(APIView):
                 SELECT 
                     stream_id,
                     {case_when_sql}
-                FROM algo_big_particle_record
+                FROM algo_big_particle_detail
                 WHERE detected_at >= %s AND detected_at <= %s AND stream_id IN ({placeholders})
                 GROUP BY stream_id
             """
@@ -359,23 +359,46 @@ class BigParticleStatsAPIView(APIView):
             recent_data = recent_results.get(stream_id, default_counts.copy())
             today_data = today_results.get(stream_id, default_counts.copy())
             
+            # 计算占比
+            recent_stats = self._calculate_stats_with_percentage(recent_data, size_levels)
+            today_stats = self._calculate_stats_with_percentage(today_data, size_levels)
+            
             # 构建该流的统计结果
             stream_stats = {
                 "stream_id": stream_id,
                 "stats": [
                     {
                         "range": "recent_30s",
-                        "values": [{"level": level, "count": recent_data[str(level)]} for level in size_levels]
+                        "values": recent_stats
                     },
                     {
                         "range": "today", 
-                        "values": [{"level": level, "count": today_data[str(level)]} for level in size_levels]
+                        "values": today_stats
                     }
                 ]
             }
             results.append(stream_stats)
         
         return Response({"results": results})
+    
+    def _calculate_stats_with_percentage(self, level_counts, size_levels):
+        """计算各等级的数量和占比"""
+        # 计算总数
+        total_count = sum(level_counts.values())
+        
+        # 构建结果列表
+        stats = []
+        for level in size_levels:
+            count = level_counts[str(level)]
+            percentage = round((count / total_count * 100), 2) if total_count > 0 else 0.0
+            
+            stats.append({
+                "level": level,
+                "count": count,
+                "percentage": percentage
+            })
+        
+        return stats
 
 
 class SystemConfigViewSet(viewsets.ModelViewSet):
