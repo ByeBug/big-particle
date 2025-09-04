@@ -214,6 +214,8 @@ class BigParticleRecordQuerySerializer(serializers.Serializer):
 class BigParticleRecordResponseSerializer(serializers.ModelSerializer):
     """大颗粒记录响应序列化器"""
     
+    min_size = serializers.SerializerMethodField()
+    max_size = serializers.SerializerMethodField()
     original_image_url = serializers.SerializerMethodField()
     rendered_image_url = serializers.SerializerMethodField()
     
@@ -231,6 +233,14 @@ class BigParticleRecordResponseSerializer(serializers.ModelSerializer):
             'rendered_image_url'
         ]
     
+    def get_min_size(self, obj):
+        """获取预计算的最小粒径"""
+        return getattr(obj, '_min_size', None)
+    
+    def get_max_size(self, obj):
+        """获取预计算的最大粒径"""
+        return getattr(obj, '_max_size', None)
+
     def get_original_image_url(self, obj):
         """获取原图URL"""
         if obj.original_image_id:

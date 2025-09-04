@@ -2,7 +2,7 @@ import logging
 import cv2
 import numpy as np
 from django.contrib.auth.models import User, Group
-from django.db import connection
+from django.db import connection, models
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -12,7 +12,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from datetime import timedelta
 
-from .models import VideoStream, AlgoRecord, AlgoBlacklist, SystemConfig, OssObject
+from .models import AlgoBigParticleDetail, VideoStream, AlgoRecord, AlgoBlacklist, SystemConfig, OssObject
 from .serializers import (
     UserSerializer, GroupSerializer, VideoStreamSerializer,
     BigParticleRecordQuerySerializer, BigParticleRecordResponseSerializer,
@@ -184,7 +184,6 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
 
 class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
     """大颗粒记录查询视图集"""
-    # TODO 从详情表中查询
     
     queryset = AlgoRecord.objects.all()
     serializer_class = BigParticleRecordResponseSerializer
@@ -197,37 +196,62 @@ class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
             raise ValidationError(query_serializer.errors)
         
         validated_data = query_serializer.validated_data
-        queryset = self.queryset
+        
+        # 先从大颗粒详情表中查询符合条件的记录
+        detail_queryset = AlgoBigParticleDetail.objects.all()
         
         # 根据流ID过滤
         stream_ids = validated_data.get('stream_ids')
         if stream_ids:
-            queryset = queryset.filter(stream_id__in=stream_ids)
+            detail_queryset = detail_queryset.filter(stream_id__in=stream_ids)
         
         # 根据流名称模糊匹配过滤
         stream_name = validated_data.get('stream_name')
         if stream_name:
-            queryset = queryset.filter(stream_name__icontains=stream_name)
+            detail_queryset = detail_queryset.filter(stream_name__icontains=stream_name)
         
         # 根据时间范围过滤
         start_time = validated_data.get('start_time')
         if start_time:
-            queryset = queryset.filter(detected_at__gte=start_time)
+            detail_queryset = detail_queryset.filter(detected_at__gte=start_time)
             
         end_time = validated_data.get('end_time')
         if end_time:
-            queryset = queryset.filter(detected_at__lte=end_time)
+            detail_queryset = detail_queryset.filter(detected_at__lte=end_time)
         
-        # 根据粒径范围过滤（基于最大粒径）
-        min_max_size = validated_data.get('min_max_size')
-        if min_max_size is not None:
-            queryset = queryset.filter(max_size__gte=min_max_size)
+        # 根据粒径范围过滤（基于单个粒径大小）
+        min_size = validated_data.get('min_size')
+        if min_size is not None:
+            detail_queryset = detail_queryset.filter(size__gte=min_size)
             
-        max_max_size = validated_data.get('max_max_size')
-        if max_max_size is not None:
-            queryset = queryset.filter(max_size__lte=max_max_size)
+        max_size = validated_data.get('max_size')
+        if max_size is not None:
+            detail_queryset = detail_queryset.filter(size__lte=max_size)
         
-        return queryset
+        # 一次性获取符合条件的 record_id 和对应的粒径统计
+        size_stats = detail_queryset.values('record_id').annotate(
+            min_size=models.Min('size'),
+            max_size=models.Max('size')
+        )
+        
+        # 提取 record_id 列表和创建粒径统计映射
+        record_ids = []
+        size_map = {}
+        for stat in size_stats:
+            record_id = stat['record_id']
+            record_ids.append(record_id)
+            size_map[record_id] = stat
+        
+        # 根据 record_id 查询对应的 AlgoRecord 记录
+        records = AlgoRecord.objects.filter(id__in=record_ids).order_by('-detected_at')
+        
+        # 为每个记录附加粒径信息
+        for record in records:
+            stat = size_map.get(record.id, {})
+            record._min_size = stat.get('min_size')
+            record._max_size = stat.get('max_size')
+        
+        return records
 
 class BigParticleStatsAPIView(APIView):
     """大颗粒统计API视图"""
