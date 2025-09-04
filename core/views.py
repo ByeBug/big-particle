@@ -12,7 +12,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from datetime import timedelta
 
-from .models import VideoStream, AlgoBigParticleRecord, AlgoBlacklist, SystemConfig, OssObject
+from .models import VideoStream, AlgoRecord, AlgoBlacklist, SystemConfig, OssObject
 from .serializers import (
     UserSerializer, GroupSerializer, VideoStreamSerializer,
     BigParticleRecordQuerySerializer, BigParticleRecordResponseSerializer,
@@ -184,8 +184,9 @@ class VideoStreamViewSet(viewsets.ModelViewSet):
 
 class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
     """大颗粒记录查询视图集"""
+    # TODO 从详情表中查询
     
-    queryset = AlgoBigParticleRecord.objects.all()
+    queryset = AlgoRecord.objects.all()
     serializer_class = BigParticleRecordResponseSerializer
     
     def get_queryset(self):
@@ -429,8 +430,8 @@ class AlgoBlacklistViewSet(viewsets.ModelViewSet):
         
         # 1. 根据 original_record_id 获取原始记录
         try:
-            original_record = AlgoBigParticleRecord.objects.get(id=original_record_id)
-        except AlgoBigParticleRecord.DoesNotExist:
+            original_record = AlgoRecord.objects.get(id=original_record_id)
+        except AlgoRecord.DoesNotExist:
             raise ValidationError(f"原始记录不存在: {original_record_id}")
         
         # 2. 从检测结果中提取对应实例

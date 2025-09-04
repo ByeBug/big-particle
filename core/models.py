@@ -91,12 +91,11 @@ class VideoStream(models.Model):
         return self.name
 
 
-class AlgoBigParticleRecord(models.Model):
+class AlgoRecord(models.Model):
     """
-    大颗粒检测记录表
+    算法检测记录表
     
-    用于存储大颗粒算法的检测结果。
-    使用 'algo_' 前缀区分算法特定表与通用业务表。
+    用于存储算法的检测结果。
     """
     
     # 关联信息（流删除后记录保留，仍可通过ID追溯）
@@ -107,6 +106,11 @@ class AlgoBigParticleRecord(models.Model):
     stream_name = models.CharField(
         max_length=100,
         help_text='视频流名称（冗余保存）'
+    )
+
+    algo_name = models.CharField(
+        max_length=100,
+        help_text='算法名称'
     )
     
     # 粒径信息（毫米为单位）
@@ -149,14 +153,72 @@ class AlgoBigParticleRecord(models.Model):
     )
     
     class Meta:
-        db_table = 'algo_big_particle_record'
+        db_table = 'core_algo_record'
         ordering = ['-detected_at']
         indexes = [
             models.Index(fields=['detected_at', 'stream_id']),
             models.Index(fields=['detected_at', 'stream_name']),
+            models.Index(fields=['detected_at', 'algo_name']),
             models.Index(fields=['detected_at', 'max_size']),
         ]
         
+    def __str__(self):
+        return f'{self.stream_name} - {self.detected_at.strftime("%Y-%m-%d %H:%M:%S")}'
+
+
+class AlgoBigParticleDetail(models.Model):
+    """
+    大颗粒检测详情表
+    
+    用于存储大颗粒算法的检测实例。
+    """
+
+    # 关联信息（流删除后记录保留，仍可通过ID追溯）
+    stream_id = models.PositiveIntegerField(
+        help_text='所属视频流ID'
+    )
+    
+    stream_name = models.CharField(
+        max_length=100,
+        help_text='视频流名称（冗余保存）'
+    )
+    
+    # 粒径尺寸（毫米为单位）
+    size = models.PositiveIntegerField(
+        help_text='粒径尺寸（毫米）'
+    )
+    
+    # 算法记录 id
+    record_id = models.PositiveIntegerField(
+        help_text='算法记录ID'
+    )
+    
+    # 检测实例
+    instance = models.JSONField(
+        null=True,
+        help_text='检测实例'
+    )
+    
+    # 时间信息
+    detected_at = models.DateTimeField(
+        help_text='检测时间'
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='记录创建时间'
+    )
+
+    class Meta:
+        db_table = 'algo_big_particle_detail'
+        ordering = ['-detected_at']
+        indexes = [
+            models.Index(fields=['detected_at', 'stream_id']),
+            models.Index(fields=['detected_at', 'stream_name']),
+            models.Index(fields=['detected_at', 'size']),
+            models.Index(fields=['record_id']),
+        ]
+
     def __str__(self):
         return f'{self.stream_name} - {self.detected_at.strftime("%Y-%m-%d %H:%M:%S")}'
 

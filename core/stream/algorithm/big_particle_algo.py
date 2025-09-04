@@ -17,7 +17,7 @@ from .model.instance import Instance
 from .model.paddle_detector import PaddleDetector
 from ..logging_utils import StreamLoggerAdapter
 from ..save_utils import ORIGINAL_DIR, RENDERED_DIR, save_image
-from core.models import AlgoBigParticleRecord
+from core.models import AlgoRecord, AlgoBigParticleDetail
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ class BigParticleAlgo:
                     if instance.score < self.threshold:
                         continue
                     # TODO 计算粒径，单位为毫米
-                    instance.size = round(min(instance.right - instance.left, instance.bottom - instance.top) * 0.4)
+                    instance.size = round(min(instance.right - instance.left, instance.bottom - instance.top) * 0.62)
                     # 忽略小于尺寸阈值的颗粒
                     if instance.size < self.size_threshold:
                         continue
@@ -242,9 +242,10 @@ class BigParticleAlgo:
             detected_at = datetime.fromtimestamp(frame.algo_running_info[self.name]['infer_start_time'],
                                                  tz=timezone.get_current_timezone())
             result = [{**instance.to_dict(), 'size': instance.size} for instance in instances]
-            record = AlgoBigParticleRecord.objects.create(
+            record = AlgoRecord.objects.create(
                 stream_id=frame.stream_id,
                 stream_name=frame.stream_name,
+                algo_name=self.name,
                 min_size=min_size,
                 max_size=max_size,
                 detected_at=detected_at,
@@ -253,7 +254,23 @@ class BigParticleAlgo:
                 rendered_image_id=rendered_image_id
             )
             
-            self.logger.debug(f"保存大颗粒记录成功: record_id={record.id}")
+            # 保存实例详情记录
+            instance_records = []
+            for instance in result:
+                instance_record = AlgoBigParticleDetail(
+                    stream_id=frame.stream_id,
+                    stream_name=frame.stream_name,
+                    size=instance['size'],
+                    record_id=record.id,
+                    instance=instance,
+                    detected_at=detected_at
+                )
+                instance_records.append(instance_record)
+            
+            # 批量创建实例记录
+            AlgoBigParticleDetail.objects.bulk_create(instance_records)
+            
+            self.logger.debug(f"保存大颗粒记录成功: record_id={record.id}, 实例数量：{len(instance_records)}")
             
         except Exception as e:
             self.logger.exception(f"保存大颗粒记录失败: error={e}")

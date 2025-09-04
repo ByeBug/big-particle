@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import VideoStream, AlgoBigParticleRecord, OssObject, SystemConfig
+from .models import VideoStream, AlgoRecord, OssObject, SystemConfig
 
 
 @admin.register(VideoStream)
@@ -11,9 +11,9 @@ class VideoStreamAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
 
 
-@admin.register(AlgoBigParticleRecord)
-class AlgoBigParticleRecordAdmin(admin.ModelAdmin):
-    list_display = ('id', 'stream_name', 'stream_id', 'min_size', 'max_size', 'detected_at', 'created_at')
+@admin.register(AlgoRecord)
+class AlgoRecordAdmin(admin.ModelAdmin):
+    list_display = ('id', 'stream_name', 'stream_id', 'algo_name', 'detected_at', 'created_at')
     list_filter = ('stream_name', 'detected_at', 'created_at')
     search_fields = ('stream_name', 'stream_id')
     readonly_fields = ('created_at',)
@@ -22,10 +22,7 @@ class AlgoBigParticleRecordAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('基本信息', {
-            'fields': ('stream_id', 'stream_name')
-        }),
-        ('粒径数据', {
-            'fields': ('min_size', 'max_size')
+            'fields': ('stream_id', 'stream_name', 'algo_name')
         }),
         ('时间信息', {
             'fields': ('detected_at', 'created_at')

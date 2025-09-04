@@ -102,10 +102,10 @@ def _cleanup_old_oss_objects(max_count: int = 1000) -> int:
         int: 处理的算法记录数量
     """
     try:
-        from ..models import AlgoBigParticleRecord
+        from ..models import AlgoRecord
         
         # 1. 获取最旧的算法记录
-        records = AlgoBigParticleRecord.objects.order_by('detected_at')[:max_count]
+        records = AlgoRecord.objects.order_by('detected_at')[:max_count]
         records_list = list(records)
         records_count = len(records_list)
         

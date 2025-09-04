@@ -2,7 +2,7 @@ import re
 import logging
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
-from .models import VideoStream, AlgoBigParticleRecord, AlgoBlacklist, OssObject, SystemConfig
+from .models import VideoStream, AlgoRecord, AlgoBlacklist, OssObject, SystemConfig
 
 logger = logging.getLogger(__name__)
 
@@ -177,14 +177,14 @@ class BigParticleRecordQuerySerializer(serializers.Serializer):
         help_text='结束时间'
     )
     
-    min_max_size = serializers.IntegerField(
+    min_size = serializers.IntegerField(
         required=False,
-        help_text='最大粒径下限（毫米）'
+        help_text='粒径下限（毫米）'
     )
     
-    max_max_size = serializers.IntegerField(
+    max_size = serializers.IntegerField(
         required=False,
-        help_text='最大粒径上限（毫米）'
+        help_text='粒径上限（毫米）'
     )
     
     def validate_stream_ids(self, value):
@@ -218,7 +218,7 @@ class BigParticleRecordResponseSerializer(serializers.ModelSerializer):
     rendered_image_url = serializers.SerializerMethodField()
     
     class Meta:
-        model = AlgoBigParticleRecord
+        model = AlgoRecord
         fields = [
             'id',
             'stream_id',
