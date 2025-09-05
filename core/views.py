@@ -197,6 +197,10 @@ class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
         
         validated_data = query_serializer.validated_data
         
+        # 获取分页参数 TODO 应该这样获取吗
+        page = int(self.request.query_params.get('page', 1))
+        page_size = int(self.request.query_params.get('pageSize', 30))
+        
         # 先从大颗粒详情表中查询符合条件的记录
         detail_queryset = AlgoBigParticleDetail.objects.all()
         
@@ -228,30 +232,42 @@ class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
         if max_size is not None:
             detail_queryset = detail_queryset.filter(size__lte=max_size)
         
-        # 一次性获取符合条件的 record_id 和对应的粒径统计
-        size_stats = detail_queryset.values('record_id').annotate(
+        # 使用子查询获取符合条件的 record_id，然后直接在 AlgoRecord 上分页
+        subquery = detail_queryset.values_list('record_id', flat=True).distinct()
+        
+        # 在 AlgoRecord 表上应用子查询过滤和分页
+        record_queryset = AlgoRecord.objects.filter(id__in=subquery).order_by('-detected_at')
+        
+        # 应用分页：计算偏移量
+        offset = (page - 1) * page_size
+        paginated_records = record_queryset[offset:offset + page_size]
+        
+        # 如果当前页没有记录，直接返回空
+        if not paginated_records:
+            return AlgoRecord.objects.none()
+        
+        # 提取当前页的 record_id 列表
+        current_page_record_ids = [record.id for record in paginated_records]
+        
+        # 批量获取当前页 record_id 的粒径统计
+        size_stats = AlgoBigParticleDetail.objects.filter(
+            record_id__in=current_page_record_ids
+        ).values('record_id').annotate(
             min_size=models.Min('size'),
             max_size=models.Max('size')
         )
         
-        # 提取 record_id 列表和创建粒径统计映射
-        record_ids = []
-        size_map = {}
-        for stat in size_stats:
-            record_id = stat['record_id']
-            record_ids.append(record_id)
-            size_map[record_id] = stat
-        
-        # 根据 record_id 查询对应的 AlgoRecord 记录
-        records = AlgoRecord.objects.filter(id__in=record_ids).order_by('-detected_at')
+        # 创建粒径统计映射
+        size_map = {stat['record_id']: stat for stat in size_stats}
         
         # 为每个记录附加粒径信息
-        for record in records:
+        for record in paginated_records:
             stat = size_map.get(record.id, {})
             record._min_size = stat.get('min_size')
             record._max_size = stat.get('max_size')
         
-        return records
+        return paginated_records
+
 
 class BigParticleStatsAPIView(APIView):
     """大颗粒统计API视图"""
