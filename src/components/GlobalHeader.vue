@@ -1,7 +1,7 @@
 <template>
   <el-row class="header-container">
     <el-col class="logo-div" :span="8">
-      <img src="@/assets/矿业公司logo.jpg" alt="logo" />
+      <img src="@/assets/kuangye_logo.jpg" alt="logo" />
     </el-col>
     <el-col class="header-middle" :span="8">
       <div class="title">大颗粒检测系统</div>

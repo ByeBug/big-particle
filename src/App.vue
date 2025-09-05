@@ -8,18 +8,10 @@ const router = useRouter()
 
 // 计算需要 keep-alive 的组件名称
 const keepAliveNames = computed(() => {
-  const names = router
+  return router
     .getRoutes()
-    .filter((route) => route.meta?.keepAlive === true)
-    .map((route) => {
-      const component = route.components?.default
-      // @ts-expect-error __name is Vue internal property
-      const componentName = component?.name || component?.__name
-      return componentName
-    })
-    .filter(Boolean)
-
-  return names
+    .filter((route) => route.meta?.keepAlive === true && !!route.meta?.keepAliveName)
+    .map((route) => route.meta!.keepAliveName as string)
 })
 </script>
 

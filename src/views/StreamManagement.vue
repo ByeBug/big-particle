@@ -75,7 +75,9 @@ onUnmounted(() => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="ip" label="IP" min-width="140" />
+        <el-table-column label="IP" min-width="140">
+          <template #default="{ row }">{{ row.ip || '-' }}</template>
+        </el-table-column>
         <el-table-column label="地址" show-overflow-tooltip min-width="260">
           <template #default="{ row }">
             <span class="address" :title="row.address">{{ row.address }}</span>

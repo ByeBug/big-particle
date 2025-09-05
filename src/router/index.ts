@@ -1,8 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import BigParticleMonitor from '@/views/BigParticleMonitor.vue'
-import BigParticleRecord from '@/views/BigParticleRecord.vue'
-import StreamManagement from '@/views/StreamManagement.vue'
-import SystemConfig from '@/views/SystemConfig.vue'
+// 路由级代码分割：动态导入各页面
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -11,12 +8,13 @@ const router = createRouter({
       path: '/monitor',
       alias: '/', // 设置别名
       name: 'monitor',
-      component: BigParticleMonitor,
+      component: () => import('@/views/BigParticleMonitor.vue'),
       meta: {
         title: '大颗粒监控',
         icon: 'Monitor',
         requiresAuth: false,
         keepAlive: true,
+        keepAliveName: 'BigParticleMonitor', // KeepAlive 组件名
         order: 1, // 菜单排序
         group: 'monitor', // 菜单分组
       },
@@ -24,37 +22,40 @@ const router = createRouter({
     {
       path: '/record',
       name: 'record',
-      component: BigParticleRecord,
+      component: () => import('@/views/BigParticleRecord.vue'),
       meta: {
         title: '大颗粒记录',
         icon: 'Document',
         requiresAuth: false,
         keepAlive: false,
+        keepAliveName: 'BigParticleRecord',
         order: 2,
       },
     },
     {
       path: '/streams',
       name: 'streams',
-      component: StreamManagement,
+      component: () => import('@/views/StreamManagement.vue'),
       meta: {
         title: '流管理',
         icon: 'Connection',
         requiresAuth: true,
         roles: ['admin'],
+        keepAliveName: 'StreamManagement',
         order: 3,
       },
     },
     {
       path: '/config',
       name: 'config',
-      component: SystemConfig,
+      component: () => import('@/views/SystemConfig.vue'),
       meta: {
         title: '系统配置',
         icon: 'Setting',
         requiresAuth: true,
         roles: ['admin'],
         hidden: false,
+        keepAliveName: 'SystemConfig',
         order: 4,
       },
     },

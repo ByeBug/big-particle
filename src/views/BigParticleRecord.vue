@@ -179,7 +179,7 @@ const nextRecord = () => moveTo(1)
             class="max-size-input"
             :min="0"
             placeholder="最小"
-            precision="0"
+            :precision="0"
             :controls="false"
           />
           <span class="range-sep">-</span>
@@ -188,7 +188,7 @@ const nextRecord = () => moveTo(1)
             class="max-size-input"
             :min="0"
             placeholder="最大"
-            precision="0"
+            :precision="0"
             :controls="false"
           />
         </el-form-item>
