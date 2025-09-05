@@ -3,13 +3,14 @@
 ## TODO
 - rtsp 流 decoder get_frame_with_timing 可能导致解码帧率比实际帧率低
 - 纯黑图像导致 paddle 推理出错？
+  读取纯黑 png 推理没出错，难道是关灯时获取的帧有问题？
+- 回流 20250905 误报，再次更新模型
 - 推理线程定时输出日志，推理统计信息
 - 编码线程
 - Prometheus 指标
 - systemctl stop gunicorn 导致的 paddle 报错
 - nginx 部署后 drf 显示的链接不能直接使用
 - 添加 WhiteNoise 使 gunicorn 支持静态文件？
-- 大颗粒对上一帧去重，可能跳帧重复
 - 定时读取黑名单，过滤模型结果
 - 大颗粒配置，支持10个等级，支持警告和错误比例，而不是数量
 - 告警表

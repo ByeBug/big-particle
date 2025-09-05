@@ -115,26 +115,36 @@ class BigParticleAlgo:
                 # 模型推理完成，设置最新的推理结果，进行业务逻辑处理等，设置帧的算法结果
                 instances: list[Instance] = frame.model_results[self.detector.model_name]   # 未过滤的模型结果
                 self.instances = []
-                current_all_instances = []  # 当前帧所有检测到的实例（包括被抑制的）
+                current_all_instances = []  # 当前帧所有检测到的实例
+                current_suppressed_instances = []  # 当前帧被抑制的实例
                 
                 for instance in instances:
+                    # 先进行较为宽松的过滤，避免在 threshold 上下波动，导致抑制不稳
+                    if instance.score < self.threshold - 0.1:
+                        continue
+                    # 计算粒径，单位为毫米
+                    instance.size = round(min(instance.right - instance.left, instance.bottom - instance.top) * 0.62)
+                    if instance.size < self.size_threshold - 5:
+                        continue
+                    current_all_instances.append(instance)
+
+                    # 再进行业务上的过滤
                     if instance.score < self.threshold:
                         continue
-                    # TODO 计算粒径，单位为毫米
-                    instance.size = round(min(instance.right - instance.left, instance.bottom - instance.top) * 0.62)
                     # 忽略小于尺寸阈值的颗粒
                     if instance.size < self.size_threshold:
                         continue
                     
                     # TODO 与黑名单做 IoU 去重
                     
-                    current_all_instances.append(instance)
                     # 与上一帧所有实例做 IoU 去重，超过阈值则认为是同一颗粒，避免皮带未运行时重复记录同一颗粒
                     if self._is_duplicate_with_prev(instance):
-                        continue  # 被抑制，但已记录到 current_all_instances
+                        current_suppressed_instances.append(instance)
+                        continue
                     
                     instance.id = len(self.instances)
                     self.instances.append(instance)
+                self.logger.debug(f"当前帧实例总数：{len(current_all_instances)}，被抑制数：{len(current_suppressed_instances)}")
                 
                 # 更新上一帧的所有实例（包括有效的和被抑制的）
                 self.prev_all_instances = current_all_instances
