@@ -1,13 +1,14 @@
 import { getJson } from './http'
 
-export interface BigParticleLevelCount {
+export interface BigParticleLevelStat {
   level: number
   count: number
+  percentage: number
 }
 
 export interface BigParticleRangeStats {
   range: string
-  values: BigParticleLevelCount[]
+  values: BigParticleLevelStat[]
 }
 
 export interface BigParticleStreamStats {

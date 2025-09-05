@@ -34,7 +34,8 @@ const setCardRange = (streamId: number, range: RangeKey) => {
 }
 const sizeLevels = ref<number[]>([])
 const thresholds = ref<Map<number, { warning: number; error: number }>>(new Map())
-type RangeStatsMap = { recent_30s: Map<number, number>; today: Map<number, number> }
+type LevelStat = { count: number; percentage: number }
+type RangeStatsMap = { recent_30s: Map<number, LevelStat>; today: Map<number, LevelStat> }
 type StreamStatsMap = Map<number, RangeStatsMap>
 const streamStats = ref<StreamStatsMap>(new Map())
 const router = useRouter()
@@ -102,7 +103,7 @@ const updateData = async (): Promise<boolean> => {
           const key = rangeItem.range as RangeKey
           const map = key === 'today' ? byRange.today : byRange.recent_30s
           rangeItem.values.forEach((v) => {
-            map.set(v.level, v.count)
+            map.set(v.level, { count: v.count, percentage: v.percentage })
             levelSet.add(v.level)
           })
         })
@@ -171,7 +172,21 @@ const getCount = (streamId: number, range: RangeKey, level: number): number => {
   const entry = streamStats.value.get(streamId)
   if (!entry) return 0
   const map = range === 'today' ? entry.today : entry.recent_30s
-  return map.get(level) ?? 0
+  return map.get(level)?.count ?? 0
+}
+
+// 获取指定流在给定时间范围和级别的百分比
+const getPercentage = (streamId: number, range: RangeKey, level: number): number => {
+  const entry = streamStats.value.get(streamId)
+  if (!entry) return 0
+  const map = range === 'today' ? entry.today : entry.recent_30s
+  return map.get(level)?.percentage ?? 0
+}
+
+const formatPercent = (n: number): string => {
+  if (!Number.isFinite(n) || n <= 0) return '0'
+  if (n < 10) return n.toFixed(2)
+  return n.toFixed(1)
 }
 
 // 计算单个级别的告警强度
@@ -385,6 +400,9 @@ onDeactivated(() => {
                   @click="goToRecordWithFilters(stream.id, idx)"
                 >
                   <div class="level-label">{{ formatLevelRangeLabel(idx) }}</div>
+                  <div class="level-percent">
+                    {{ formatPercent(getPercentage(stream.id, getCardRange(stream.id), level)) }}
+                  </div>
                   <div class="level-count">
                     {{ getCount(stream.id, getCardRange(stream.id), level) }}
                   </div>
@@ -514,9 +532,22 @@ onDeactivated(() => {
   color: var(--el-text-color-secondary);
 }
 
+.level-percent {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.level-percent::after {
+  content: '%';
+  margin-left: 2px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
 .level-count {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .stream-card-header .title-line {
