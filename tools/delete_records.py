@@ -24,6 +24,57 @@ if __name__ == '__main__':
 
 from tools.utils import parse_record_ranges, get_db_connection
 
+def delete_files_and_oss_records(cursor, image_ids):
+    """删除文件和 OSS 记录"""
+    deleted_files_count = 0
+    failed_files_count = 0
+    deleted_oss_count = 0
+    
+    if not image_ids:
+        return deleted_files_count, failed_files_count, deleted_oss_count
+    
+    # 查询 OSS 记录（image_ids 最多 2000 个，无需分批）
+    placeholders = ','.join(['%s'] * len(image_ids))
+    sql_oss = f'''
+    SELECT id, file_path, file_name
+    FROM core_oss_object
+    WHERE id IN ({placeholders})
+    '''
+    
+    cursor.execute(sql_oss, image_ids)
+    oss_objects = cursor.fetchall()
+    
+    print(f"\t\t找到 {len(oss_objects)} 个 OSS 记录")
+    
+    # 删除实际文件
+    print(f"\t\t删除文件中...")
+    for oss_obj in oss_objects:
+        oss_id, file_path, file_name = oss_obj
+        abs_file_path = f'/data/big-particle-data/storage/oss/{file_path}'
+        
+        try:
+            if os.path.exists(abs_file_path):
+                os.remove(abs_file_path)
+                deleted_files_count += 1
+            else:
+                print(f"\t\t\t文件不存在，跳过: {file_path}")
+        except Exception as e:
+            print(f"\t\t\t删除文件失败 {file_path}: {e}")
+            failed_files_count += 1
+    print(f"\t\t删除文件完成")
+
+    # 删除 OSS 记录
+    sql_delete_oss = f'''
+    DELETE FROM core_oss_object 
+    WHERE id IN ({placeholders})
+    '''
+    
+    cursor.execute(sql_delete_oss, image_ids)
+    deleted_oss_count = cursor.rowcount
+    print(f"\t\t删除 {deleted_oss_count} 条 OSS 记录")
+    
+    return deleted_files_count, failed_files_count, deleted_oss_count
+
 def main():
     # 检查命令行参数
     if len(sys.argv) < 2:
@@ -58,109 +109,100 @@ def main():
     try:
         cursor = conn.cursor()
         
-        # 构建多个 BETWEEN 条件的 SQL
-        between_conditions = []
-        range_params = []
+        # 统计变量
+        total_deleted_records = 0
+        total_deleted_big_particle_detail = 0
+        total_deleted_files = 0
+        total_failed_files = 0
+        total_deleted_oss = 0
+        all_image_ids = set()
         
-        for start_id, end_id in record_ranges:
-            between_conditions.append("(id BETWEEN %s AND %s)")
-            range_params.extend([start_id, end_id])
+        print(f"开始分批处理删除操作...")
         
-        # 1. 首先获取要删除的记录信息
-        sql_select = f'''
-        SELECT id, original_image_id, rendered_image_id, stream_name, detected_at
-        FROM algo_big_particle_record
-        WHERE {' OR '.join(between_conditions)}
-        ORDER BY id DESC
-        '''
-        
-        print(f"查询要删除的记录...")
-        cursor.execute(sql_select, range_params)
-        records = cursor.fetchall()
-        
-        if not records:
-            print("没有找到匹配的记录")
-            return
+        # 分批处理每个范围
+        for range_idx, (start_id, end_id) in enumerate(record_ranges):
+            print(f"\n处理范围 {range_idx + 1}/{len(record_ranges)}: {start_id}-{end_id}")
             
-        print(f"找到 {len(records)} 条记录准备删除")
-        
-        record_ids = []
-        all_image_id_set = set()
-        
-        for record in records:
-            record_id, original_image_id, rendered_image_id, stream_name, detected_at = record
-            record_ids.append(record_id)
-            if original_image_id is not None:
-                all_image_id_set.add(original_image_id)
-            if rendered_image_id is not None:
-                all_image_id_set.add(rendered_image_id)
-        
-        print(f"记录 ID 数量: {len(record_ids)}")
-        print(f"有效的图片 ID 数量: {len(all_image_id_set)}")
-
-        # 2. 合并所有需要删除的图片ID
-        all_image_ids = list(all_image_id_set)  # 去重
-        deleted_files_count = 0
-        failed_files_count = 0
-        deleted_oss_count = 0
-        
-        if all_image_ids:
-            placeholders = ','.join(['%s'] * len(all_image_ids))
-            sql_oss = f'''
-            SELECT id, file_path, file_name
-            FROM core_oss_object
-            WHERE id IN ({placeholders})
-            '''
+            # 计算当前范围的总记录数
+            range_size = end_id - start_id + 1
             
-            cursor.execute(sql_oss, all_image_ids)
-            oss_objects = cursor.fetchall()
-            
-            print(f"找到 {len(oss_objects)} 个 OSS 对象需要删除（包括原图和渲染图）")
-            
-            # 删除实际文件
-            for oss_obj in oss_objects:
-                oss_id, file_path, file_name = oss_obj
-                abs_file_path = f'/data/big-particle-data/storage/oss/{file_path}'
+            # 分批处理当前范围
+            for batch_start in range(start_id, end_id + 1, 1000):
+                batch_end = min(batch_start + 999, end_id)
+                print(f"\t处理批次: {batch_start}-{batch_end}")
                 
-                try:
-                    if os.path.exists(abs_file_path):
-                        os.remove(abs_file_path)
-                        print(f"已删除文件: {file_path}")
-                        deleted_files_count += 1
-                    else:
-                        print(f"文件不存在，跳过: {abs_file_path}")
-                except Exception as e:
-                    print(f"删除文件失败 {abs_file_path}: {e}")
-                    failed_files_count += 1
+                # 1. 获取当前批次的记录信息
+                sql_select = '''
+                SELECT id, original_image_id, rendered_image_id, stream_name, detected_at
+                FROM core_algo_record
+                WHERE id BETWEEN %s AND %s
+                ORDER BY id DESC
+                '''
+                
+                cursor.execute(sql_select, [batch_start, batch_end])
+                records = cursor.fetchall()
+                
+                if not records:
+                    print(f"\t\t批次 {batch_start}-{batch_end} 没有找到记录")
+                    continue
+                
+                print(f"\t\t找到 {len(records)} 条记录")
+                
+                # 收集记录ID和图片ID
+                batch_record_ids = []
+                batch_image_ids = set()
+                
+                for record in records:
+                    record_id, original_image_id, rendered_image_id, stream_name, detected_at = record
+                    batch_record_ids.append(record_id)
+                    if original_image_id is not None:
+                        batch_image_ids.add(original_image_id)
+                        all_image_ids.add(original_image_id)
+                    if rendered_image_id is not None:
+                        batch_image_ids.add(rendered_image_id)
+                        all_image_ids.add(rendered_image_id)
+                
+                # 2. 删除当前批次的文件和 OSS 记录
+                if batch_image_ids:
+                    deleted_files, failed_files, deleted_oss = delete_files_and_oss_records(
+                        cursor, list(batch_image_ids)
+                    )
+                    total_deleted_files += deleted_files
+                    total_failed_files += failed_files
+                    total_deleted_oss += deleted_oss
+                
+                # 3. 删除当前批次的算法记录
+                sql_delete_records = '''
+                DELETE FROM core_algo_record
+                WHERE id BETWEEN %s AND %s
+                '''
+                
+                cursor.execute(sql_delete_records, [batch_start, batch_end])
+                deleted_records_count = cursor.rowcount
+                total_deleted_records += deleted_records_count
+                print(f"\t\t删除 {deleted_records_count} 条算法记录")
 
-            # 3. 硬删除OSS记录
-            sql_delete_oss = f'''
-            DELETE FROM core_oss_object 
-            WHERE id IN ({placeholders})
-            '''
-            
-            cursor.execute(sql_delete_oss, all_image_ids)
-            deleted_oss_count = cursor.rowcount
-            print(f"已硬删除 {deleted_oss_count} 条 OSS 记录")
-
-        # 4. 删除算法记录
-        sql_delete_records = f'''
-        DELETE FROM algo_big_particle_record
-        WHERE {' OR '.join(between_conditions)}
-        '''
+                # 4. 删除当前批次的大颗粒详情记录
+                sql_delete_big_particle_detail = '''
+                DELETE FROM algo_big_particle_detail
+                WHERE record_id BETWEEN %s AND %s
+                '''
+                
+                cursor.execute(sql_delete_big_particle_detail, [batch_start, batch_end])
+                deleted_big_particle_detail_count = cursor.rowcount
+                total_deleted_big_particle_detail += deleted_big_particle_detail_count
+                print(f"\t\t删除 {deleted_big_particle_detail_count} 条大颗粒详情记录")
+                
+                # 每批次都提交事务
+                conn.commit()
+                print(f"\t\t批次 {batch_start}-{batch_end} 处理完成")
         
-        cursor.execute(sql_delete_records, range_params)
-        deleted_records_count = cursor.rowcount
-        
-        # 提交事务
-        conn.commit()
-        
-        print(f"\n删除操作完成:")
-        print(f"  删除记录数: {deleted_records_count} 条")
-        print(f"  删除 OSS 记录数: {deleted_oss_count} 条")
-        print(f"  删除文件数: {deleted_files_count} 个")
-        print(f"  文件删除失败数: {failed_files_count} 个")
-        print(f"  总图片 ID 数: {len(all_image_ids)} 个（原图+渲染图去重后）")
+        print(f"\n所有删除操作完成:")
+        print(f"\t删除记录数: {total_deleted_records} 条")
+        print(f"\t删除大颗粒详情记录数: {total_deleted_big_particle_detail} 条")
+        print(f"\t删除 OSS 记录数: {total_deleted_oss} 条")
+        print(f"\t删除文件数: {total_deleted_files} 个")
+        print(f"\t删除文件失败数: {total_failed_files} 个")
         
     except psycopg.Error as e:
         print(f"数据库操作失败: {e}")

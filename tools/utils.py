@@ -8,13 +8,13 @@ def parse_record_ranges(args):
     解析命令行参数为记录ID范围列表
     
     Args:
-        args: 命令行参数列表，每个参数格式为 "起始ID-结束ID"
+        args: 命令行参数列表，每个参数格式为 "起始ID-结束ID" 或 "结束ID-起始ID"
         
     Returns:
-        list: 包含 (start_id, end_id) 元组的列表
+        list: 包含 (start_id, end_id) 元组的列表，自动规范化为正序（小-大）
         
     Example:
-        >>> parse_record_ranges(['100-200', '300-400'])
+        >>> parse_record_ranges(['100-200', '400-300'])
         [(100, 200), (300, 400)]
     """
     record_ranges = []
@@ -25,10 +25,13 @@ def parse_record_ranges(args):
                 start_str, end_str = arg.split('-', 1)
                 start_id = int(start_str.strip())
                 end_id = int(end_str.strip())
-                if start_id <= end_id:
-                    record_ranges.append((start_id, end_id))
-                else:
-                    print(f"警告: 跳过无效范围 {arg} (起始ID大于结束ID)")
+                
+                # 自动规范化为正序（小-大）
+                if start_id > end_id:
+                    start_id, end_id = end_id, start_id
+                    print(f"提示: 将范围 {arg} 规范化为 {start_id}-{end_id}")
+                
+                record_ranges.append((start_id, end_id))
             else:
                 print(f"警告: 跳过格式错误的参数 {arg} (应为 起始ID-结束ID)")
         except ValueError:

@@ -74,7 +74,7 @@ def main():
         
         sql1 = f'''
         SELECT id, original_image_id, stream_name, detected_at
-        FROM algo_big_particle_record
+        FROM core_algo_record
         WHERE {' OR '.join(between_conditions)}
         ORDER BY id DESC
         '''
