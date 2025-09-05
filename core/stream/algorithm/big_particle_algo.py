@@ -49,8 +49,8 @@ class BigParticleAlgo:
         )
 
         self.instances: list[Instance] = []
-        # 上一帧的实例，用于 IoU 去重
-        self.prev_instances: list[Instance] = []
+        # 上一帧的所有实例（包括有效的和被抑制的），用于 IoU 去重
+        self.prev_all_instances: list[Instance] = []
         # IoU 阈值，超过该阈值认为是同一颗粒
         self.iou_threshold: float = self.algo_config.get('iou_threshold', 0.8)
 
@@ -115,6 +115,8 @@ class BigParticleAlgo:
                 # 模型推理完成，设置最新的推理结果，进行业务逻辑处理等，设置帧的算法结果
                 instances: list[Instance] = frame.model_results[self.detector.model_name]   # 未过滤的模型结果
                 self.instances = []
+                current_all_instances = []  # 当前帧所有检测到的实例（包括被抑制的）
+                
                 for instance in instances:
                     if instance.score < self.threshold:
                         continue
@@ -123,14 +125,19 @@ class BigParticleAlgo:
                     # 忽略小于尺寸阈值的颗粒
                     if instance.size < self.size_threshold:
                         continue
+                    
                     # TODO 与黑名单做 IoU 去重
-                    # 与上一帧做 IoU 去重，超过阈值则认为是同一颗粒，避免皮带未运行时重复记录同一颗粒 TODO 会跳帧重复记录
+                    
+                    current_all_instances.append(instance)
+                    # 与上一帧所有实例做 IoU 去重，超过阈值则认为是同一颗粒，避免皮带未运行时重复记录同一颗粒
                     if self._is_duplicate_with_prev(instance):
-                        continue
+                        continue  # 被抑制，但已记录到 current_all_instances
+                    
                     instance.id = len(self.instances)
                     self.instances.append(instance)
                 
-                self.prev_instances = self.instances
+                # 更新上一帧的所有实例（包括有效的和被抑制的）
+                self.prev_all_instances = current_all_instances
                 frame.algo_results[self.name] = self.instances
             
             # 推理结果处理完立刻渲染，先于其他业务逻辑，以便在编码前完成渲染
@@ -175,10 +182,10 @@ class BigParticleAlgo:
             cv2.rectangle(image, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
     def _is_duplicate_with_prev(self, curr: Instance) -> bool:
-        """与上一帧做 IoU 比较，若大于阈值则认为是同一颗粒"""
-        if not self.prev_instances:
+        """与上一帧所有实例做 IoU 比较，若大于阈值则认为是同一颗粒"""
+        if not self.prev_all_instances:
             return False
-        for prev in self.prev_instances:
+        for prev in self.prev_all_instances:
             if self._calc_iou(curr, prev) >= self.iou_threshold:
                 return True
         return False
