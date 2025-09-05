@@ -188,18 +188,21 @@ class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AlgoRecord.objects.all()
     serializer_class = BigParticleRecordResponseSerializer
     
-    def get_queryset(self):
-        """根据查询参数过滤记录"""
+    def list(self, request, *args, **kwargs):
+        """重写 list 方法来自定义分页逻辑"""
         # 获取查询参数
-        query_serializer = BigParticleRecordQuerySerializer(data=self.request.query_params)
+        query_serializer = BigParticleRecordQuerySerializer(data=request.query_params)
         if not query_serializer.is_valid():
             raise ValidationError(query_serializer.errors)
         
         validated_data = query_serializer.validated_data
         
-        # 获取分页参数 TODO 应该这样获取吗
-        page = int(self.request.query_params.get('page', 1))
-        page_size = int(self.request.query_params.get('pageSize', 30))
+        # 获取分页参数
+        try:
+            page = max(1, int(request.query_params.get('page', 1)))
+        except:
+            page = 1
+        page_size = 30
         
         # 先从大颗粒详情表中查询符合条件的记录
         detail_queryset = AlgoBigParticleDetail.objects.all()
@@ -232,6 +235,9 @@ class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
         if max_size is not None:
             detail_queryset = detail_queryset.filter(size__lte=max_size)
         
+        # 计算总数（只计算不同的 record_id 数量）
+        total_count = detail_queryset.values('record_id').distinct().count()
+        
         # 使用子查询获取符合条件的 record_id，然后直接在 AlgoRecord 上分页
         subquery = detail_queryset.values_list('record_id', flat=True).distinct()
         
@@ -242,9 +248,12 @@ class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
         offset = (page - 1) * page_size
         paginated_records = record_queryset[offset:offset + page_size]
         
-        # 如果当前页没有记录，直接返回空
+        # 如果当前页没有记录，返回空结果
         if not paginated_records:
-            return AlgoRecord.objects.none()
+            return Response({
+                'count': total_count,
+                'results': []
+            })
         
         # 提取当前页的 record_id 列表
         current_page_record_ids = [record.id for record in paginated_records]
@@ -266,7 +275,14 @@ class BigParticleRecordViewSet(viewsets.ReadOnlyModelViewSet):
             record._min_size = stat.get('min_size')
             record._max_size = stat.get('max_size')
         
-        return paginated_records
+        # 序列化数据
+        serializer = self.get_serializer(paginated_records, many=True)
+        
+        # 返回自定义分页格式
+        return Response({
+            'count': total_count,
+            'results': serializer.data
+        })
 
 
 class BigParticleStatsAPIView(APIView):
