@@ -454,3 +454,42 @@ class SystemConfig(models.Model):
         if name:
             query = query.filter(name=name)
         return query
+
+
+class SystemState(models.Model):
+    """
+    系统运行状态记录表
+    
+    用于记录系统的各种状态信息，如清理进度等。
+    """
+    
+    key = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text='状态键名'
+    )
+    
+    value = models.JSONField(
+        help_text='状态值'
+    )
+    
+    description = models.TextField(
+        blank=True,
+        help_text='状态描述'
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text='更新时间'
+    )
+    
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='创建时间'
+    )
+    
+    class Meta:
+        db_table = 'core_system_state'
+        
+    def __str__(self):
+        return f'{self.key}: {self.value[:50]}'

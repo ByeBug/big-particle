@@ -87,16 +87,49 @@ def _list_saved_frame_dirs_older_than(cutoff_dt: datetime):
     return [p for _, p in result]
 
 
-def _cleanup_old_oss_objects(max_count: int = 1000) -> int:
+def _get_cleanup_progress():
+    """获取清理进度状态"""
+    try:
+        from ..models import SystemState
+        state = SystemState.objects.filter(key='cleanup_progress').first()
+        if not state:
+            return {'last_cleaned_algo_record_id': 0}
+        return state.value
+    except Exception as e:
+        logger.error(f"获取清理进度失败: {e}")
+        return {'last_cleaned_algo_record_id': 0}
+
+
+def _update_cleanup_progress(last_cleaned_algo_record_id: int):
+    """更新清理进度状态"""
+    try:
+        from ..models import SystemState
+        progress = {'last_cleaned_algo_record_id': last_cleaned_algo_record_id}
+        state, created = SystemState.objects.get_or_create(
+            key='cleanup_progress',
+            defaults={
+                'value': progress,
+                'description': '清理进度'
+            }
+        )
+        if not created:
+            state.value = progress
+            state.save(update_fields=['value', 'updated_at'])
+        logger.debug(f"已更新清理进度: last_cleaned_algo_record_id={last_cleaned_algo_record_id}")
+    except Exception as e:
+        logger.error(f"更新清理进度失败: {e}")
+
+
+def _cleanup_oldest_algo_records(max_count: int = 1000) -> int:
     """
     清理最旧的算法记录关联的原图和渲染图，算法记录保留
     
     清理策略：
-    1. 获取最旧的 max_count 条算法记录
-    2. 收集这些记录关联的原图和渲染图的 oss_id
-    3. 删除对应的 OSS 对象（文件和数据库记录）
-    TODO 由于未删除算法记录，因此每次都从最旧的算法记录开始清理，即使它们的关联图片已删除
-      考虑在运行状态表中，记录最后被清理的记录 id，下次从该记录开始清理
+    1. 获取清理进度，从上次清理截止的记录ID之后开始
+    2. 获取接下来的 max_count 条算法记录
+    3. 收集这些记录关联的原图和渲染图的 oss_id
+    4. 删除对应的 OSS 对象（文件和数据库记录）
+    5. 更新清理进度状态
     
     Returns:
         int: 处理的算法记录数量
@@ -104,15 +137,22 @@ def _cleanup_old_oss_objects(max_count: int = 1000) -> int:
     try:
         from ..models import AlgoRecord
         
-        # 1. 获取最旧的算法记录
-        records = AlgoRecord.objects.order_by('detected_at')[:max_count]
+        # 1. 获取清理进度
+        progress = _get_cleanup_progress()
+        last_cleaned_id = progress.get('last_cleaned_algo_record_id', 0)
+        
+        # 2. 获取算法记录（从上次清理位置之后开始，按ID排序）
+        records = AlgoRecord.objects.filter(
+            id__gt=last_cleaned_id
+        ).order_by('id')[:max_count]
         records_list = list(records)
         records_count = len(records_list)
         
         if not records_list:
+            logger.info("没有更多算法记录需要清理")
             return 0
         
-        # 2. 收集所有需要删除的图片 ID
+        # 3. 收集所有需要删除的图片 ID
         image_ids = set()
         for record in records_list:
             if record.original_image_id:
@@ -120,12 +160,16 @@ def _cleanup_old_oss_objects(max_count: int = 1000) -> int:
             if record.rendered_image_id:
                 image_ids.add(record.rendered_image_id)
         
-        # 3. 删除图片文件和 OSS 记录
+        # 4. 删除图片文件和 OSS 记录
         if image_ids:
             result = delete_oss_images(list(image_ids))
             logger.info(f"删除图片结果: 成功 {result['deleted_count']} 个，失败 {result['failed_count']} 个")
         
-        logger.info(f"已清理最旧的算法记录 {records_count} 条，关联图片 {len(image_ids)} 个")
+        # 5. 更新清理进度，记录最后处理的记录ID
+        last_record_id = records_list[-1].id
+        _update_cleanup_progress(last_record_id)
+        
+        logger.info(f"已清理算法记录 {records_count} 条（ID: {records_list[0].id} - {last_record_id}），关联图片 {len(image_ids)} 个")
         return records_count
         
     except Exception as e:
@@ -148,7 +192,7 @@ def _cleanup_storage_if_low_space():
 
     cutoff = datetime.now() - timedelta(days=3)
     removed_dirs = 0
-    cleaned_oss_total = 0
+    cleaned_algo_record_total = 0
 
     # 1) 一次性获取所有早于 cutoff 的目录，按最旧优先逐个删除，每删一次重检空间
     older_dirs = _list_saved_frame_dirs_older_than(cutoff)
@@ -164,16 +208,16 @@ def _cleanup_storage_if_low_space():
             continue
         free_gb = _get_free_space_gb(STORAGE_DIR)
 
-    # 2) 若仍不足，则按批次删除最旧的 OSS 记录，每批1000条
+    # 2) 若仍不足，则按批次删除最旧的算法记录，每批1000条
     while free_gb < SAFE_FREE_SPACE_GB:
-        cleaned = _cleanup_old_oss_objects(max_count=1000)
-        cleaned_oss_total += cleaned
+        cleaned = _cleanup_oldest_algo_records(max_count=1000)
+        cleaned_algo_record_total += cleaned
         if cleaned <= 0:
             break
         free_gb = _get_free_space_gb(STORAGE_DIR)
 
     logger.info(
-        f"清理完成：剩余空间 {free_gb:.1f}GB，删除保存帧目录 {removed_dirs} 个；清理 OSS 记录 {cleaned_oss_total} 条"
+        f"清理完成：剩余空间 {free_gb:.1f}GB，删除保存帧目录 {removed_dirs} 个；清理算法记录 {cleaned_algo_record_total} 条"
     )
 
 
