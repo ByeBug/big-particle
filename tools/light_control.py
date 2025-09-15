@@ -8,7 +8,7 @@ import sys
 
 def create_tcp_client():
     """创建TCP客户端连接"""
-    host = '192.168.3.108'
+    host = '192.168.1.101'
     port = 4196  # 默认使用Modbus端口，如果需要其他端口请修改
     
     try:
@@ -70,9 +70,12 @@ def main():
         return
     
     # 定义命令
+    # 第一路
     command_on = bytes([0x01, 0x05, 0x00, 0x00, 0xFF, 0x00, 0x8C, 0x3A])  # 开灯命令
     command_off = bytes([0x01, 0x05, 0x00, 0x00, 0x00, 0x00, 0xCD, 0xCA])  # 关灯命令
-    
+    # 第二路
+    command_on = bytes([0x01, 0x05, 0x00, 0x01, 0xFF, 0x00, 0xDD, 0xFA])  # 开灯命令
+    command_off = bytes([0x01, 0x05, 0x00, 0x01, 0x00, 0x00, 0x9C, 0x0A])  # 关灯命令
     try:
         while True:
             try:

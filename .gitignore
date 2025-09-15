@@ -18,3 +18,4 @@ logs/
 paddle_samples/models/
 paddle_samples/test_data/
 paddle_samples/output/
+/data/
