@@ -493,3 +493,90 @@ class SystemState(models.Model):
         
     def __str__(self):
         return f'{self.key}: {self.value[:50]}'
+
+
+class Alarm(models.Model):
+    """
+    告警表
+    
+    用于存储系统告警信息。
+    """
+    
+    # 告警类型
+    alarm_type = models.CharField(
+        max_length=50,
+        help_text='告警类型'
+    )
+
+    # 流信息
+    stream_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='关联的视频流ID'
+    )
+    
+    stream_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='视频流名称（冗余保存）'
+    )
+    
+    # 告警数据（JSON格式）
+    data = models.JSONField(
+        help_text='告警数据（JSON格式）'
+    )
+    
+    # 告警时间
+    alarm_time = models.DateTimeField(
+        help_text='告警时间'
+    )
+    
+    # 记录ID（可为空）
+    record_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='关联的记录ID'
+    )
+    
+    # 告警图ID
+    alarm_image_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='告警图OSS对象ID'
+    )
+    
+    # 原图ID
+    original_image_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='原图OSS对象ID'
+    )
+
+    # 告警视频ID
+    alarm_video_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='告警视频OSS对象ID'
+    )
+    
+    # 时间戳
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='记录创建时间'
+    )
+    
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text='记录更新时间'
+    )
+    
+    class Meta:
+        db_table = 'core_alarm'
+        ordering = ['-alarm_time']
+        indexes = [
+            models.Index(fields=['alarm_time', 'alarm_type']),
+            models.Index(fields=['alarm_time', 'stream_id']),
+        ]
+        
+    def __str__(self):
+        return f'{self.alarm_type} - {self.alarm_time.strftime("%Y-%m-%d %H:%M:%S")}'

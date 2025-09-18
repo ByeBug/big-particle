@@ -12,12 +12,12 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from datetime import timedelta
 
-from .models import AlgoBigParticleDetail, VideoStream, AlgoRecord, AlgoBlacklist, SystemConfig, OssObject
+from .models import AlgoBigParticleDetail, VideoStream, AlgoRecord, AlgoBlacklist, SystemConfig, OssObject, Alarm
 from .serializers import (
     UserSerializer, GroupSerializer, VideoStreamSerializer,
     BigParticleRecordQuerySerializer, BigParticleRecordResponseSerializer,
     BigParticleStatsQuerySerializer, SystemConfigSerializer,
-    AlgoBlacklistSerializer
+    AlgoBlacklistSerializer, AlarmQuerySerializer, AlarmResponseSerializer
 )
 from .stream.video_processor import create_processor, remove_processor, get_processor
 from .stream.save_utils import save_image, OSS_DIR, BLACKLIST_DIR, delete_oss_images
@@ -585,3 +585,42 @@ class AlgoBlacklistViewSet(viewsets.ModelViewSet):
                        f"成功 {result['deleted_count']} 个，失败 {result['failed_count']} 个")
         
         instance.delete()
+
+
+class AlarmViewSet(viewsets.ReadOnlyModelViewSet):
+    """告警查询视图集"""
+    
+    queryset = Alarm.objects.all()
+    serializer_class = AlarmResponseSerializer
+    
+    def get_queryset(self):
+        """根据查询参数过滤数据"""
+        queryset = super().get_queryset()
+        
+        # 获取查询参数
+        query_serializer = AlarmQuerySerializer(data=self.request.query_params)
+        if not query_serializer.is_valid():
+            raise ValidationError(query_serializer.errors)
+        
+        validated_data = query_serializer.validated_data
+        
+        # 根据流ID过滤
+        stream_ids = validated_data.get('stream_ids')
+        if stream_ids:
+            queryset = queryset.filter(stream_id__in=stream_ids)
+        
+        # 根据告警类型过滤
+        alarm_type = validated_data.get('alarm_type')
+        if alarm_type:
+            queryset = queryset.filter(alarm_type=alarm_type)
+        
+        # 根据时间范围过滤
+        start_time = validated_data.get('start_time')
+        if start_time:
+            queryset = queryset.filter(alarm_time__gte=start_time)
+            
+        end_time = validated_data.get('end_time')
+        if end_time:
+            queryset = queryset.filter(alarm_time__lte=end_time)
+        
+        return queryset

@@ -2,7 +2,7 @@ import re
 import logging
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
-from .models import VideoStream, AlgoRecord, AlgoBlacklist, OssObject, SystemConfig
+from .models import VideoStream, AlgoRecord, AlgoBlacklist, OssObject, SystemConfig, Alarm
 
 logger = logging.getLogger(__name__)
 
@@ -511,5 +511,110 @@ class AlgoBlacklistSerializer(serializers.HyperlinkedModelSerializer):
                 return oss_object.get_url()
             except OssObject.DoesNotExist:
                 logger.warning(f"小图OSS对象不存在: blacklist_id={obj.id}, oss_id={obj.cropped_image_id}")
+                return None
+        return None
+
+
+class AlarmQuerySerializer(serializers.Serializer):
+    """告警查询参数序列化器"""
+    
+    stream_ids = serializers.CharField(
+        required=False,
+        help_text='流ID列表（逗号分隔，如: 1,2,3 或单个值）'
+    )
+    
+    alarm_type = serializers.CharField(
+        max_length=50,
+        required=False,
+        help_text='告警类型'
+    )
+    
+    start_time = serializers.DateTimeField(
+        required=False,
+        help_text='开始时间'
+    )
+    
+    end_time = serializers.DateTimeField(
+        required=False,
+        help_text='结束时间'
+    )
+    
+    def validate_stream_ids(self, value):
+        """验证并解析流ID列表"""
+        if not value:
+            return []
+            
+        try:
+            # 分割逗号分隔的字符串并转换为整数列表
+            ids = [int(id_str.strip()) for id_str in value.split(',') if id_str.strip()]
+            return ids
+        except ValueError as e:
+            raise serializers.ValidationError(f"流ID格式无效，请使用逗号分隔的整数: {e}")
+    
+    def validate_alarm_type(self, value):
+        """验证告警类型"""
+        if value:
+            return value.strip()
+        return value
+    
+    def validate_end_time(self, value):
+        if value:
+            return value.replace(microsecond=999999)
+        return value
+
+
+class AlarmResponseSerializer(serializers.ModelSerializer):
+    """告警响应序列化器"""
+    
+    alarm_image_url = serializers.SerializerMethodField()
+    original_image_url = serializers.SerializerMethodField()
+    alarm_video_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Alarm
+        fields = [
+            'id',
+            'alarm_type',
+            'stream_id',
+            'stream_name',
+            'alarm_time',
+            'data',
+            'record_id',
+            'alarm_image_url',
+            'original_image_url',
+            'alarm_video_url',
+            'created_at'
+        ]
+    
+    def get_alarm_image_url(self, obj):
+        """获取告警图URL"""
+        if obj.alarm_image_id:
+            try:
+                oss_object = OssObject.objects.get(id=obj.alarm_image_id)
+                return oss_object.get_url()
+            except OssObject.DoesNotExist:
+                logger.warning(f"告警图OSS对象不存在: alarm_id={obj.id}, oss_id={obj.alarm_image_id}")
+                return None
+        return None
+    
+    def get_original_image_url(self, obj):
+        """获取原图URL"""
+        if obj.original_image_id:
+            try:
+                oss_object = OssObject.objects.get(id=obj.original_image_id)
+                return oss_object.get_url()
+            except OssObject.DoesNotExist:
+                logger.warning(f"原图OSS对象不存在: alarm_id={obj.id}, oss_id={obj.original_image_id}")
+                return None
+        return None
+    
+    def get_alarm_video_url(self, obj):
+        """获取告警视频URL"""
+        if obj.alarm_video_id:
+            try:
+                oss_object = OssObject.objects.get(id=obj.alarm_video_id)
+                return oss_object.get_url()
+            except OssObject.DoesNotExist:
+                logger.warning(f"告警视频OSS对象不存在: alarm_id={obj.id}, oss_id={obj.alarm_video_id}")
                 return None
         return None

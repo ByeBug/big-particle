@@ -24,6 +24,7 @@ def _update_algorithm_configs(algo_name, dynamic_config):
         from .stream.video_processor import active_processors
         
         # 遍历所有活跃的处理器
+        # TODO 多机时不能这样处理，redis 消息队列？
         updated_count = 0
         for processor in active_processors.values():
             processor.update_algorithm_config(algo_name, dynamic_config)
