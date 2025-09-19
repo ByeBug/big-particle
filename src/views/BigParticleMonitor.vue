@@ -33,7 +33,15 @@ const setCardRange = (streamId: number, range: RangeKey) => {
   cardActiveRange.value.set(streamId, range)
 }
 const sizeLevels = ref<number[]>([])
-const thresholds = ref<Map<number, { warning: number; error: number }>>(new Map())
+type LevelAlarmThreshold = {
+  warning_count?: number
+  warning_percentage?: number
+  error_count?: number
+  error_percentage?: number
+}
+const levelAlarmThresholds = ref<Map<number, LevelAlarmThreshold>>(new Map())
+// 上次从接口获取配置的时间戳（毫秒）
+let lastConfigFetchedAt = 0
 type LevelStat = { count: number; percentage: number }
 type RangeStatsMap = { recent_30s: Map<number, LevelStat>; today: Map<number, LevelStat> }
 type StreamStatsMap = Map<number, RangeStatsMap>
@@ -111,23 +119,37 @@ const updateData = async (): Promise<boolean> => {
       })
       streamStats.value = nextStats
 
-      // 与配置 level 比对，不一致则刷新配置并同步 sizeLevels
+      // 每隔 10 秒刷新一次配置阈值；若统计得到的 level 与当前配置不一致，也立即刷新
       const levelsFromStats = Array.from(levelSet).sort((a, b) => a - b)
+      const now = Date.now()
+      const configLevels = Array.from(levelAlarmThresholds.value.keys()).sort((a, b) => a - b)
       const arraysEqual = (a: number[], b: number[]) =>
         a.length === b.length && a.every((v, i) => v === b[i])
-      if (sizeLevels.value.length === 0 || !arraysEqual(sizeLevels.value, levelsFromStats)) {
-        // 获取配置
+      const shouldRefreshByInterval =
+        now - lastConfigFetchedAt >= 10_000 || sizeLevels.value.length === 0
+      const shouldRefreshByLevelMismatch = !arraysEqual(configLevels, levelsFromStats)
+      if (shouldRefreshByInterval || shouldRefreshByLevelMismatch) {
         const cfg = await getActiveBigParticleAlgorithmConfig()
         const threshold = cfg?.config_data?.alarm_threshold as Array<{
           size_level: number
-          warning: number
-          error: number
+          warning_count?: number
+          warning_percentage?: number
+          error_count?: number
+          error_percentage?: number
         }>
-        const map = new Map<number, { warning: number; error: number }>()
-        threshold.forEach((t) => map.set(t.size_level, { warning: t.warning, error: t.error }))
-        thresholds.value = map
-        sizeLevels.value = levelsFromStats
+        const map = new Map<number, LevelAlarmThreshold>()
+        threshold.forEach((t) =>
+          map.set(t.size_level, {
+            warning_count: t.warning_count,
+            warning_percentage: t.warning_percentage,
+            error_count: t.error_count,
+            error_percentage: t.error_percentage,
+          }),
+        )
+        levelAlarmThresholds.value = map
+        lastConfigFetchedAt = now
       }
+      sizeLevels.value = levelsFromStats
     }
 
     // 组合数据并打标告警等级（基于 30s 内数据）
@@ -191,11 +213,15 @@ const formatPercent = (n: number): string => {
 
 // 计算单个级别的告警强度
 const getLevelSeverity = (streamId: number, level: number): AlarmLevel => {
-  const t = thresholds.value.get(level)
+  const t = levelAlarmThresholds.value.get(level)
   if (!t) return 'ok'
   const count = getCount(streamId, 'recent_30s', level)
-  if (count >= t.error) return 'error'
-  if (count >= t.warning) return 'warning'
+  const percentage = getPercentage(streamId, 'recent_30s', level)
+  if (typeof t.error_count === 'number' && count >= t.error_count) return 'error'
+  if (typeof t.error_percentage === 'number' && percentage >= t.error_percentage) return 'error'
+  if (typeof t.warning_count === 'number' && count >= t.warning_count) return 'warning'
+  if (typeof t.warning_percentage === 'number' && percentage >= t.warning_percentage)
+    return 'warning'
   return 'ok'
 }
 

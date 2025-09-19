@@ -9,8 +9,10 @@ import {
 
 interface AlarmRow {
   size_level: number | null
-  warning: number | null
-  error: number | null
+  warning_count: number | null
+  warning_percentage: number | null
+  error_count: number | null
+  error_percentage: number | null
 }
 
 interface BigParticleConfigForm {
@@ -23,15 +25,29 @@ const saving = ref(false)
 const configItem = ref<SystemConfigItem | null>(null)
 const form = reactive<BigParticleConfigForm>({
   threshold: null,
-  alarm_threshold: [{ size_level: null, warning: null, error: null }],
+  alarm_threshold: [
+    {
+      size_level: null,
+      warning_count: null,
+      warning_percentage: null,
+      error_count: null,
+      error_percentage: null,
+    },
+  ],
 })
 
-const canAddRow = () => form.alarm_threshold.length < 5
+const canAddRow = () => form.alarm_threshold.length < 10
 const canRemoveRow = () => form.alarm_threshold.length > 1
 
 const addRow = () => {
   if (!canAddRow()) return
-  form.alarm_threshold.push({ size_level: null, warning: null, error: null })
+  form.alarm_threshold.push({
+    size_level: null,
+    warning_count: null,
+    warning_percentage: null,
+    error_count: null,
+    error_percentage: null,
+  })
 }
 
 const removeRow = (idx: number) => {
@@ -42,8 +58,10 @@ const removeRow = (idx: number) => {
 function normalizeRows(rows: AlarmRow[]): AlarmRow[] {
   const normalized = rows.map((r) => ({
     size_level: Number(r.size_level ?? 0),
-    warning: Number(r.warning ?? 0),
-    error: Number(r.error ?? 0),
+    warning_count: r.warning_count ?? null,
+    warning_percentage: r.warning_percentage ?? null,
+    error_count: r.error_count ?? null,
+    error_percentage: r.error_percentage ?? null,
   }))
   normalized.sort((a, b) => (a.size_level ?? 0) - (b.size_level ?? 0))
   return normalized
@@ -72,14 +90,23 @@ const validateForm = (): string | null => {
   if (form.threshold === null || isNaN(form.threshold)) return '请填写阈值'
   if (form.threshold < 0 || form.threshold > 1) return '阈值需在 0~1 之间'
   const rows = form.alarm_threshold
-  if (rows.length < 1 || rows.length > 5) return '粒径阈值行数需要在 1~5 之间'
+  if (rows.length < 1 || rows.length > 10) return '粒径阈值行数需要在 1~10 之间'
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]
     if (r.size_level === null || isNaN(r.size_level)) return `第 ${i + 1} 行：请填写粒径等级`
-    if (r.warning === null || isNaN(r.warning)) return `第 ${i + 1} 行：请填写预警阈值`
-    if (r.error === null || isNaN(r.error)) return `第 ${i + 1} 行：请填写错误阈值`
-    if (r.warning < 1 || r.error < 1) return `第 ${i + 1} 行：阈值需大于零`
-    if (r.error < r.warning) return `第 ${i + 1} 行：错误阈值需大于等于预警阈值`
+    // 其余字段均为可选；若填写则需为非负数
+    const nums: Array<[keyof AlarmRow, number | null]> = [
+      ['warning_count', r.warning_count],
+      ['error_count', r.error_count],
+      ['warning_percentage', r.warning_percentage],
+      ['error_percentage', r.error_percentage],
+    ]
+    for (const [key, val] of nums) {
+      if (val !== null) {
+        if (isNaN(val)) return `第 ${i + 1} 行：${key} 需为数字`
+        if (val < 0) return `第 ${i + 1} 行：${key} 需为非负`
+      }
+    }
   }
   const levels = rows.map((r) => r.size_level)
   const uniq = new Set(levels)
@@ -102,11 +129,17 @@ const handleSubmit = async () => {
     const payload = {
       config_data: {
         threshold: form.threshold,
-        alarm_threshold: form.alarm_threshold.map((r) => ({
-          size_level: Number(r.size_level),
-          warning: Number(r.warning),
-          error: Number(r.error),
-        })),
+        alarm_threshold: form.alarm_threshold.map((r): Record<string, number> => {
+          const row: Record<string, number> = {
+            size_level: Number(r.size_level),
+          }
+          if (typeof r.warning_count === 'number') row.warning_count = r.warning_count
+          if (typeof r.warning_percentage === 'number')
+            row.warning_percentage = r.warning_percentage
+          if (typeof r.error_count === 'number') row.error_count = r.error_count
+          if (typeof r.error_percentage === 'number') row.error_percentage = r.error_percentage
+          return row
+        }),
       },
     }
     const updated = await updateSystemConfig(configItem.value.id, payload)
@@ -147,12 +180,14 @@ onMounted(loadData)
             <el-input-number v-model="form.threshold" :step="0.01" :min="0.5" :max="1" />
           </el-form-item>
 
-          <el-form-item label="粒径告警阈值 (1~5 行)">
+          <el-form-item label="粒径告警阈值 (1~10 行)">
             <div class="rows">
               <div class="row header">
                 <span class="th col">粒径等级 (mm)</span>
-                <span class="th col">预警阈值</span>
-                <span class="th col">错误阈值</span>
+                <span class="th col">预警计数</span>
+                <span class="th col">预警百分比(%)</span>
+                <span class="th col">错误计数</span>
+                <span class="th col">错误百分比(%)</span>
                 <span class="th actions">操作</span>
               </div>
               <div v-for="(row, idx) in form.alarm_threshold" :key="idx" class="row">
@@ -165,19 +200,35 @@ onMounted(loadData)
                   class="col"
                 />
                 <el-input-number
-                  v-model="row.warning"
+                  v-model="row.warning_count"
                   :min="0"
                   :step="1"
                   :controls="false"
-                  placeholder="预警阈值"
+                  placeholder="预警计数"
                   class="col"
                 />
                 <el-input-number
-                  v-model="row.error"
+                  v-model="row.warning_percentage"
+                  :min="0"
+                  :step="0.1"
+                  :controls="false"
+                  placeholder="预警百分比(%)"
+                  class="col"
+                />
+                <el-input-number
+                  v-model="row.error_count"
                   :min="0"
                   :step="1"
                   :controls="false"
-                  placeholder="错误阈值"
+                  placeholder="错误计数"
+                  class="col"
+                />
+                <el-input-number
+                  v-model="row.error_percentage"
+                  :min="0"
+                  :step="0.1"
+                  :controls="false"
+                  placeholder="错误百分比(%)"
                   class="col"
                 />
                 <el-button type="danger" text :disabled="!canRemoveRow()" @click="removeRow(idx)"
