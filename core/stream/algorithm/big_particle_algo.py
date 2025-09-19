@@ -5,6 +5,7 @@ import cv2
 import logging
 from datetime import datetime
 import time
+import threading
 from concurrent.futures import Future
 
 from django.utils import timezone
@@ -16,8 +17,8 @@ from ..frame import DecodedFrame
 from .model.instance import Instance
 from .model.paddle_detector import PaddleDetector
 from ..logging_utils import StreamLoggerAdapter
-from ..save_utils import ORIGINAL_DIR, RENDERED_DIR, save_image
-from core.models import AlgoRecord, AlgoBigParticleDetail
+from ..save_utils import ORIGINAL_DIR, RENDERED_DIR, ALARM_DIR, save_image
+from core.models import AlgoRecord, AlgoBigParticleDetail, Alarm
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,11 @@ class BigParticleAlgo:
         self.name = algo_config['name']
         self.algo_config = algo_config or {}
         self.threshold = self.algo_config['threshold']
-        self.size_threshold = sorted([threshold['size_level'] for threshold in self.algo_config['alarm_threshold']])[0]
+        self.alarm_threshold_map = {}
+        for alarm_threshold in self.algo_config['alarm_threshold']:
+            self.alarm_threshold_map[alarm_threshold['size_level']] = alarm_threshold
+        self.size_levels = sorted([size_level for size_level in self.alarm_threshold_map.keys()])
+        self.size_threshold = self.size_levels[0]
         # 设置带 StreamID 的日志器
         self.logger = StreamLoggerAdapter(logger, {'stream_id': stream_id})
         
@@ -54,6 +59,15 @@ class BigParticleAlgo:
         # IoU 阈值，超过该阈值认为是同一颗粒
         self.iou_threshold: float = self.algo_config.get('iou_threshold', 0.8)
 
+        # 每小时不同粒径颗粒数量统计，{20250910_01: {size: count}}
+        self.hour_size_count_map: dict[str, dict[int, int]] = {}
+        self.prev_hour_str = ''
+        self.hour_size_lock = threading.Lock()
+
+        # 每小时不同粒径等级的告警
+        self.hour_size_level_alarm_map: dict[str, dict[str, dict]] = {}
+        self.prev_calc_alarm_ts = -1
+
         self.logger.info(f"已初始化算法实例: {self.name}")
     
     def update_config(self, algo_config: dict):
@@ -63,7 +77,11 @@ class BigParticleAlgo:
         try:
             self.algo_config = algo_config
             self.threshold = self.algo_config['threshold']
-            self.size_threshold = sorted([threshold['size_level'] for threshold in self.algo_config['alarm_threshold']])[0]
+            self.alarm_threshold_map = {}
+            for alarm_threshold in self.algo_config['alarm_threshold']:
+                self.alarm_threshold_map[alarm_threshold['size_level']] = alarm_threshold
+            self.size_levels = sorted([size_level for size_level in self.alarm_threshold_map.keys()])
+            self.size_threshold = self.size_levels[0]
             self.iou_threshold = self.algo_config.get('iou_threshold', 0.8)
             self.logger.info(f"算法 {self.name} 已更新配置")
         except:
@@ -283,3 +301,119 @@ class BigParticleAlgo:
             
         except Exception as e:
             self.logger.exception(f"保存大颗粒记录失败: error={e}")
+        
+        # 告警逻辑
+        with self.hour_size_lock:
+            now = datetime.now()
+            current_hour_str = now.strftime('%Y%m%d_%H')
+            # 进入新的小时后，清理上一小时的统计
+            if current_hour_str != self.prev_hour_str:
+                if self.prev_hour_str in self.hour_size_count_map:
+                    del self.hour_size_count_map[self.prev_hour_str]
+                if self.prev_hour_str in self.hour_size_level_alarm_map:
+                    del self.hour_size_level_alarm_map[self.prev_hour_str]
+                self.hour_size_count_map[current_hour_str] = {}
+                self.hour_size_level_alarm_map[current_hour_str] = {}
+                self.prev_hour_str = current_hour_str
+            
+            # 不同粒径数量统计
+            current_hour_size_count_map = self.hour_size_count_map[current_hour_str]
+            for instance in instances:
+                size = instance.size
+                current_hour_size_count_map[size] = current_hour_size_count_map.get(size, 0) + 1
+            
+            # 是否需要计算告警，距上次 5s 后再计算
+            need_calc_alarm = False
+            if now.timestamp - self.prev_calc_alarm_ts >= 5:
+                self.prev_calc_alarm_ts = now.timestamp
+                need_calc_alarm = True
+        
+        if need_calc_alarm:
+            current_hour_size_level_alarm_map = self.hour_size_level_alarm_map[current_hour_str]
+            # 当前小时内，大于粒径阈值的颗粒总数，用于计算各等级的百分比
+            total_count = 0
+            for size, count in current_hour_size_count_map.items():
+                if size >= self.size_threshold:
+                    total_count += count
+            
+            for i, size_level in enumerate(self.size_levels):
+                included_min_size = size_level
+                excluded_max_size = None if i == len(self.size_levels) - 1 else self.size_levels[i + 1]
+                size_level_str = f'>={included_min_size}' if i == len(self.size_levels) - 1 else f'{included_min_size}-{excluded_max_size}'
+                if size_level_str not in current_hour_size_level_alarm_map:
+                    current_hour_size_level_alarm_map[size_level_str] = {
+                        'error_count': self.alarm_threshold_map[size_level].get('error_count', None),
+                        'error_percentage': self.alarm_threshold_map[size_level].get('error_percentage', None),
+                        'count': 0,
+                        'percentage': 0,
+                        'alarmed': False,
+                    }
+                size_level_alarm = current_hour_size_level_alarm_map[size_level_str]
+
+                # 若该等级已告警过，则跳过
+                if size_level_alarm['alarmed']:
+                    continue
+
+                # 重置该等级的计数
+                size_level_alarm['count'] = 0
+
+                # 计算该等级颗粒数量和百分比
+                for size, count in current_hour_size_count_map.items():
+                    if size < included_min_size:
+                        continue
+                    elif excluded_max_size is not None and size >= excluded_max_size:
+                        continue
+                    else:
+                        size_level_alarm['count'] += count
+                size_level_alarm['percentage'] = round(size_level_alarm['count'] / total_count * 100, 2) if total_count > 0 else 0.0
+                
+                # 判断是否告警
+                generate_alarm = False
+                if size_level_alarm['error_count'] is not None and size_level_alarm['count'] >= size_level_alarm['error_count']:
+                    generate_alarm = True
+                    alarm_data = {
+                        'size_level': size_level_str,
+                        'error_count': size_level_alarm['error_count'],
+                        'count': size_level_alarm['count'],
+                    }
+                # 百分比告警会覆盖数量告警
+                if size_level_alarm['error_percentage'] is not None and size_level_alarm['percentage'] >= size_level_alarm['error_percentage']:
+                    generate_alarm = True
+                    alarm_data = {
+                        'size_level': size_level_str,
+                        'error_percentage': size_level_alarm['error_percentage'],
+                        'percentage': size_level_alarm['percentage'],
+                    }
+                
+                if generate_alarm:
+                    try:
+                        alarm_image_id = None
+                        if frame.has_canvas():  # TODO 多算法时，切换为对原图再次渲染
+                            file_path = ALARM_DIR / f"{self.name}/stream_{frame.stream_id}_{frame.timestamp}.jpg"
+                            try:
+                                alarm_image_id = save_image(frame.canvas, file_path)
+                            except Exception as e:
+                                self.logger.error(f"保存告警图失败: {e}")
+                        
+                        alarm_original_image_id = None
+                        file_path = ALARM_DIR / f"{self.name}/stream_{frame.stream_id}_{frame.timestamp}.png"
+                        try:
+                            alarm_original_image_id = save_image(frame.ocv_image, file_path)
+                        except Exception as e:
+                            self.logger.error(f"保存告警原图失败: {e}")
+                        
+                        Alarm.objects.create(
+                            alarm_type='big_particle',
+                            stream_id=frame.stream_id,
+                            stream_name=frame.stream_name,
+                            data=alarm_data,
+                            alarm_time=timezone.now(),
+                            record_id=record.id,
+                            alarm_image_id=alarm_image_id,
+                            original_image_id=alarm_original_image_id,
+                        )
+
+                        size_level_alarm['alarmed'] = True
+                        self.logger.info(f"生成告警: {alarm_data}")
+                    except Exception as e:
+                        self.logger.exception(f"生成告警失败: {e}")

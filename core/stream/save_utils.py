@@ -22,6 +22,7 @@ ORIGINAL_DIR = OSS_DIR / "original_frames"
 RENDERED_DIR = OSS_DIR / "rendered_frames"
 SAVED_FRAMES_DIR = STORAGE_DIR / "saved_frames"
 BLACKLIST_DIR = OSS_DIR / "blacklists"
+ALARM_DIR = OSS_DIR / "alarms"
 SAFE_FREE_SPACE_GB = 400  # 安全剩余空间阈值（GB）
 
 
