@@ -33,6 +33,19 @@ const router = createRouter({
       },
     },
     {
+      path: '/alarms',
+      name: 'alarms',
+      component: () => import('@/views/AlarmRecord.vue'),
+      meta: {
+        title: '异常告警',
+        icon: 'Bell',
+        requiresAuth: false,
+        keepAlive: false,
+        keepAliveName: 'AlarmRecord',
+        order: 2.5,
+      },
+    },
+    {
       path: '/streams',
       name: 'streams',
       component: () => import('@/views/StreamManagement.vue'),
