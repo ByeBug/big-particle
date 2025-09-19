@@ -60,6 +60,7 @@ class BigParticleAlgo:
         self.iou_threshold: float = self.algo_config.get('iou_threshold', 0.8)
 
         # 每小时不同粒径颗粒数量统计，{20250910_01: {size: count}}
+        # TODO 使用 redis 存储？否则重启后会丢失
         self.hour_size_count_map: dict[str, dict[int, int]] = {}
         self.prev_hour_str = ''
         self.hour_size_lock = threading.Lock()
@@ -324,8 +325,8 @@ class BigParticleAlgo:
             
             # 是否需要计算告警，距上次 5s 后再计算
             need_calc_alarm = False
-            if now.timestamp - self.prev_calc_alarm_ts >= 5:
-                self.prev_calc_alarm_ts = now.timestamp
+            if now.timestamp() - self.prev_calc_alarm_ts >= 5:
+                self.prev_calc_alarm_ts = now.timestamp()
                 need_calc_alarm = True
         
         if need_calc_alarm:
@@ -342,10 +343,6 @@ class BigParticleAlgo:
                 size_level_str = f'>={included_min_size}' if i == len(self.size_levels) - 1 else f'{included_min_size}-{excluded_max_size}'
                 if size_level_str not in current_hour_size_level_alarm_map:
                     current_hour_size_level_alarm_map[size_level_str] = {
-                        'error_count': self.alarm_threshold_map[size_level].get('error_count', None),
-                        'error_percentage': self.alarm_threshold_map[size_level].get('error_percentage', None),
-                        'count': 0,
-                        'percentage': 0,
                         'alarmed': False,
                     }
                 size_level_alarm = current_hour_size_level_alarm_map[size_level_str]
@@ -354,6 +351,9 @@ class BigParticleAlgo:
                 if size_level_alarm['alarmed']:
                     continue
 
+                # 每次都获取该等级的告警阈值，以响应配置更新
+                size_level_alarm['error_count'] = self.alarm_threshold_map[size_level].get('error_count', None)
+                size_level_alarm['error_percentage'] = self.alarm_threshold_map[size_level].get('error_percentage', None)
                 # 重置该等级的计数
                 size_level_alarm['count'] = 0
 
@@ -365,7 +365,8 @@ class BigParticleAlgo:
                         continue
                     else:
                         size_level_alarm['count'] += count
-                size_level_alarm['percentage'] = round(size_level_alarm['count'] / total_count * 100, 2) if total_count > 0 else 0.0
+                # 仅在总数大于 200 时计算百分比，避免数量太少时百分比不准确
+                size_level_alarm['percentage'] = round(size_level_alarm['count'] / total_count * 100, 2) if total_count > 200 else 0.0
                 
                 # 判断是否告警
                 generate_alarm = False
@@ -402,7 +403,7 @@ class BigParticleAlgo:
                         except Exception as e:
                             self.logger.error(f"保存告警原图失败: {e}")
                         
-                        Alarm.objects.create(
+                        alarm = Alarm.objects.create(
                             alarm_type='big_particle',
                             stream_id=frame.stream_id,
                             stream_name=frame.stream_name,
@@ -414,6 +415,8 @@ class BigParticleAlgo:
                         )
 
                         size_level_alarm['alarmed'] = True
-                        self.logger.info(f"生成告警: {alarm_data}")
+                        self.logger.info(f"生成告警: id={alarm.id}, data={alarm_data}")
                     except Exception as e:
                         self.logger.exception(f"生成告警失败: {e}")
+
+            self.logger.debug(f'计算告警：{current_hour_size_level_alarm_map}')
