@@ -16,7 +16,7 @@ from .models import AlgoBigParticleDetail, VideoStream, AlgoRecord, AlgoBlacklis
 from .serializers import (
     UserSerializer, GroupSerializer, VideoStreamSerializer,
     BigParticleRecordQuerySerializer, BigParticleRecordResponseSerializer,
-    BigParticleStatsQuerySerializer, SystemConfigSerializer,
+    BigParticleStatsQuerySerializer, BigParticleHourlyStatsQuerySerializer, BigParticleDailyStatsQuerySerializer, SystemConfigSerializer,
     AlgoBlacklistSerializer, AlarmQuerySerializer, AlarmResponseSerializer
 )
 from .stream.video_processor import create_processor, remove_processor, get_processor
@@ -431,6 +431,227 @@ class BigParticleStatsAPIView(APIView):
             })
         
         return stats
+
+
+class BigParticleHourlyStatsAPIView(APIView):
+    """大颗粒按小时统计API视图"""
+
+    def _get_size_levels(self):
+        """从系统配置获取粒径等级"""
+        big_particle_config = SystemConfig.objects.filter(
+            config_type='algorithm',
+            name='big_particle',
+            is_active=True
+        ).first()
+
+        if not big_particle_config:
+            raise ValidationError("未找到大颗粒算法配置")
+
+        alarm_threshold = big_particle_config.config_data['alarm_threshold']
+        # 从 alarm_threshold 中获取粒径等级，并排序
+        size_levels = sorted([threshold['size_level'] for threshold in alarm_threshold])
+        return size_levels
+
+    def get(self, request):
+        """获取指定日期和流ID的按小时统计数据"""
+        # 验证查询参数
+        query_serializer = BigParticleHourlyStatsQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            raise ValidationError(query_serializer.errors)
+
+        stream_id = query_serializer.validated_data['stream_id']
+        date = query_serializer.validated_data['date']
+
+        # 获取动态粒径等级
+        size_levels = self._get_size_levels()
+
+        # 计算时间边界（指定日期的整天，使用当前时区）
+        # 创建timezone-aware的datetime对象
+        start_time = timezone.datetime.combine(date, timezone.datetime.min.time())
+        start_time = timezone.make_aware(start_time, timezone.get_current_timezone())
+        end_time = start_time + timedelta(days=1)
+
+        # 根据等级动态构建CASE WHEN子句
+        case_when_clauses = []
+        for i, level in enumerate(size_levels):
+            if i == len(size_levels) - 1:
+                # 最后一个等级：>=该等级
+                case_when_clauses.append(f"COUNT(CASE WHEN size >= {level} THEN 1 END) AS count_{i}")
+            else:
+                # 中间等级：>=当前等级且<下一等级
+                next_level = size_levels[i + 1]
+                case_when_clauses.append(f"COUNT(CASE WHEN size >= {level} AND size < {next_level} THEN 1 END) AS count_{i}")
+
+        case_when_sql = ',\n                '.join(case_when_clauses)
+
+        # 执行 SQL 查询
+        with connection.cursor() as cursor:
+            sql = f"""
+            SELECT
+                stream_id,
+                DATE_TRUNC('hour', detected_at AT TIME ZONE 'Asia/Shanghai') AS hour_time,
+                {case_when_sql}
+            FROM algo_big_particle_detail
+            WHERE stream_id = %s
+            AND detected_at >= %s AND detected_at < %s
+            GROUP BY stream_id, DATE_TRUNC('hour', detected_at AT TIME ZONE 'Asia/Shanghai')
+            ORDER BY hour_time
+            """
+
+            cursor.execute(sql, (stream_id, start_time, end_time))
+            rows = cursor.fetchall()
+
+        # 构建响应数据
+        hourly_stats = []
+        num_size_ranges = len(size_levels)
+
+        for row in rows:
+            stream_id_result = row[0]
+            hour_time = row[1]
+            counts = list(row[2:2+num_size_ranges])  # 各尺寸范围的计数
+            total_count = sum(counts)
+
+            hour_str = hour_time.strftime('%H:00')
+
+            # 构建尺寸范围数据，包含数量和百分比
+            size_ranges = []
+            for i, level in enumerate(size_levels):
+                count = counts[i]
+                percentage = round((count / total_count * 100), 2) if total_count > 200 else 0.0
+
+                # 构建范围标签
+                if i == len(size_levels) - 1:
+                    range_label = f">={level}mm"
+                else:
+                    range_label = f"{level}-{size_levels[i+1]}mm"
+
+                size_ranges.append({
+                    "range": range_label,
+                    "count": count,
+                    "percentage": percentage
+                })
+
+            hourly_stats.append({
+                "stream_id": stream_id_result,
+                "hour": hour_str,
+                "size_ranges": size_ranges,
+                "total": total_count
+            })
+
+        return Response({
+            "stream_id": stream_id,
+            "date": date.strftime('%Y-%m-%d'),
+            "hourly_stats": hourly_stats
+        })
+
+
+class BigParticleDailyStatsAPIView(APIView):
+    """大颗粒按天统计API视图"""
+
+    def _get_size_levels(self):
+        """从系统配置获取粒径等级"""
+        big_particle_config = SystemConfig.objects.filter(
+            config_type='algorithm',
+            name='big_particle',
+            is_active=True
+        ).first()
+
+        if not big_particle_config:
+            raise ValidationError("未找到大颗粒算法配置")
+
+        alarm_threshold = big_particle_config.config_data['alarm_threshold']
+        # 从 alarm_threshold 中获取粒径等级，并排序
+        size_levels = sorted([threshold['size_level'] for threshold in alarm_threshold])
+        return size_levels
+
+    def get(self, request):
+        """获取指定日期范围和流ID的按天统计数据"""
+        # 验证查询参数
+        query_serializer = BigParticleDailyStatsQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            raise ValidationError(query_serializer.errors)
+
+        stream_id = query_serializer.validated_data['stream_id']
+        start_date = query_serializer.validated_data['start_date']
+        end_date = query_serializer.validated_data['end_date']
+        end_date_excluded = end_date + timedelta(days=1)
+
+        # 获取动态粒径等级
+        size_levels = self._get_size_levels()
+
+        # 根据等级动态构建CASE WHEN子句
+        case_when_clauses = []
+        for i, level in enumerate(size_levels):
+            if i == len(size_levels) - 1:
+                # 最后一个等级：>=该等级
+                case_when_clauses.append(f"COUNT(CASE WHEN size >= {level} THEN 1 END) AS count_{i}")
+            else:
+                # 中间等级：>=当前等级且<下一等级
+                next_level = size_levels[i + 1]
+                case_when_clauses.append(f"COUNT(CASE WHEN size >= {level} AND size < {next_level} THEN 1 END) AS count_{i}")
+
+        case_when_sql = ',\n                '.join(case_when_clauses)
+
+        # 执行 SQL 查询（按天分组）
+        with connection.cursor() as cursor:
+            sql = f"""
+            SELECT
+                stream_id,
+                DATE_TRUNC('day', detected_at AT TIME ZONE 'Asia/Shanghai') AS day_time,
+                {case_when_sql}
+            FROM algo_big_particle_detail
+            WHERE stream_id = %s
+            AND detected_at >= %s AND detected_at < %s
+            GROUP BY stream_id, DATE_TRUNC('day', detected_at AT TIME ZONE 'Asia/Shanghai')
+            ORDER BY day_time
+            """
+
+            cursor.execute(sql, (stream_id, start_date, end_date_excluded))
+            rows = cursor.fetchall()
+
+        # 构建响应数据
+        daily_stats = []
+        num_size_ranges = len(size_levels)
+
+        for row in rows:
+            stream_id_result = row[0]
+            day_time = row[1]
+            counts = list(row[2:2+num_size_ranges])  # 各尺寸范围的计数
+            total_count = sum(counts)
+
+            date_str = day_time.strftime('%Y-%m-%d')
+
+            # 构建尺寸范围数据，包含数量和百分比
+            size_ranges = []
+            for i, level in enumerate(size_levels):
+                count = counts[i]
+                percentage = round((count / total_count * 100), 2) if total_count > 200 else 0.0
+
+                # 构建范围标签
+                if i == len(size_levels) - 1:
+                    range_label = f">={level}mm"
+                else:
+                    range_label = f"{level}-{size_levels[i+1]}mm"
+
+                size_ranges.append({
+                    "range": range_label,
+                    "count": count,
+                    "percentage": percentage
+                })
+
+            daily_stats.append({
+                "stream_id": stream_id_result,
+                "date": date_str,
+                "size_ranges": size_ranges,
+                "total": total_count
+            })
+
+        return Response({
+            "stream_id": stream_id,
+            "start_date": start_date.strftime('%Y-%m-%d'),
+            "end_date": end_date.strftime('%Y-%m-%d'),
+            "daily_stats": daily_stats
+        })
 
 
 class SystemConfigViewSet(viewsets.ModelViewSet):

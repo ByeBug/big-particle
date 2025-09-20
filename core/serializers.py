@@ -264,6 +264,47 @@ class BigParticleRecordResponseSerializer(serializers.ModelSerializer):
         return None
 
 
+class BigParticleHourlyStatsQuerySerializer(serializers.Serializer):
+    """大颗粒按小时统计查询参数序列化器"""
+
+    stream_id = serializers.IntegerField(
+        required=True,
+        min_value=1,
+        help_text='流ID'
+    )
+
+    date = serializers.DateField(
+        required=True,
+        help_text='查询日期（格式：YYYY-MM-DD）'
+    )
+
+
+class BigParticleDailyStatsQuerySerializer(serializers.Serializer):
+    """大颗粒按天统计查询参数序列化器"""
+
+    stream_id = serializers.IntegerField(
+        required=True,
+        min_value=1,
+        help_text='流ID'
+    )
+
+    start_date = serializers.DateField(
+        required=True,
+        help_text='开始日期（格式：YYYY-MM-DD）'
+    )
+
+    end_date = serializers.DateField(
+        required=True,
+        help_text='结束日期（格式：YYYY-MM-DD）'
+    )
+
+    def validate(self, data):
+        """验证日期范围"""
+        if data['start_date'] > data['end_date']:
+            raise serializers.ValidationError("开始日期不能晚于结束日期")
+        return data
+
+
 class BigParticleStatsQuerySerializer(serializers.Serializer):
     """大颗粒统计查询参数序列化器"""
     
@@ -583,7 +624,8 @@ class AlarmResponseSerializer(serializers.ModelSerializer):
             'alarm_image_url',
             'original_image_url',
             'alarm_video_url',
-            'created_at'
+            'created_at',
+            'updated_at',
         ]
     
     def get_alarm_image_url(self, obj):
