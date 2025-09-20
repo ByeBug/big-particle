@@ -33,6 +33,19 @@ const router = createRouter({
       },
     },
     {
+      path: '/stat',
+      name: 'stat',
+      component: () => import('@/views/BigParticleStat.vue'),
+      meta: {
+        title: '大颗粒统计',
+        icon: 'DataLine',
+        requiresAuth: false,
+        keepAlive: true,
+        keepAliveName: 'BigParticleStat',
+        order: 2.4,
+      },
+    },
+    {
       path: '/alarms',
       name: 'alarms',
       component: () => import('@/views/AlarmRecord.vue'),

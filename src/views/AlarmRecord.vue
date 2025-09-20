@@ -25,9 +25,9 @@ const filters = ref({
   timeRange: [] as [Date, Date] | [],
 })
 
-const startOf7DaysAgo = () => dayjs().subtract(7, 'day').startOf('day').toDate()
+const startOfDaysAgo = () => dayjs().subtract(1, 'day').startOf('day').toDate()
 const endOfToday = () => dayjs().endOf('day').toDate()
-filters.value.timeRange = [startOf7DaysAgo(), endOfToday()]
+filters.value.timeRange = [startOfDaysAgo(), endOfToday()]
 
 const formatLocalIso = (d?: Date) => (d ? dayjs(d).format('YYYY-MM-DDTHH:mm:ss') : undefined)
 
@@ -131,7 +131,7 @@ const formatPercent = (v?: number) => {
               () => {
                 filters.streamIds = []
                 filters.alarmType = undefined
-                filters.timeRange = [startOf7DaysAgo(), endOfToday()]
+                filters.timeRange = [startOfDaysAgo(), endOfToday()]
                 fetchAlarms(1)
               }
             "

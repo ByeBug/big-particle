@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance } from 'axios'
 
 const DEV_BASE_URL = 'http://127.0.0.1:8000'
+// const DEV_BASE_URL = '/api'    // 需要开发服务器做转发
 const apiBaseUrl: string = import.meta.env.DEV ? DEV_BASE_URL : `${window.location.origin}/api`
 
 export const http: AxiosInstance = axios.create({
