@@ -143,6 +143,9 @@ class BigParticleAlgo:
                         continue
                     # 计算粒径，单位为毫米
                     instance.size = round(min(instance.right - instance.left, instance.bottom - instance.top) * 0.62)
+                    # 分别记录短边和长边尺寸
+                    instance.short_size = instance.size
+                    instance.long_size = round(max(instance.right - instance.left, instance.bottom - instance.top) * 0.62)
                     if instance.size < self.size_threshold - 5:
                         continue
                     current_all_instances.append(instance)
@@ -271,7 +274,8 @@ class BigParticleAlgo:
             # 创建记录
             detected_at = datetime.fromtimestamp(frame.algo_running_info[self.name]['infer_start_time'],
                                                  tz=timezone.get_current_timezone())
-            result = [{**instance.to_dict(), 'size': instance.size} for instance in instances]
+            result = [{**instance.to_dict(), 'size': instance.size,
+                'short_size': instance.short_size, 'long_size': instance.long_size} for instance in instances]
             record = AlgoRecord.objects.create(
                 stream_id=frame.stream_id,
                 stream_name=frame.stream_name,
@@ -289,6 +293,8 @@ class BigParticleAlgo:
                     stream_id=frame.stream_id,
                     stream_name=frame.stream_name,
                     size=instance['size'],
+                    short_size=instance['short_size'],
+                    long_size=instance['long_size'],
                     record_id=record.id,
                     instance=instance,
                     detected_at=detected_at

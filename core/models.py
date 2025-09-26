@@ -177,7 +177,17 @@ class AlgoBigParticleDetail(models.Model):
     size = models.PositiveIntegerField(
         help_text='粒径尺寸（毫米）'
     )
-    
+
+    short_size = models.PositiveIntegerField(
+        null=True,
+        help_text='短边尺寸（毫米）'
+    )
+
+    long_size = models.PositiveIntegerField(
+        null=True,
+        help_text='长边尺寸（毫米）'
+    )
+
     # 算法记录 id
     record_id = models.PositiveIntegerField(
         help_text='算法记录ID'
