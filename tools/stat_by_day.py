@@ -1,5 +1,5 @@
 '''
-统计几个日期每个小时的颗粒数量统计
+统计日期范围内每天的颗粒数量统计
 按照不同尺寸范围统计颗粒数量
 '''
 import os
@@ -16,18 +16,18 @@ if __name__ == '__main__':
 from tools.utils import get_db_connection
 
 
-def get_particle_size_stats_hourly(stream_ids, start_time, end_time, size_levels):
+def get_particle_size_stats_by_day(stream_ids, start_date, end_date, size_levels):
     """
-    获取指定时间范围内按小时分组的颗粒尺寸统计
+    获取指定日期范围内按天分组的颗粒尺寸统计
     
     Args:
         stream_ids: 流ID列表
-        start_time: 开始时间
-        end_time: 结束时间
+        start_date: 开始日期
+        end_date: 结束日期
         size_levels: 尺寸等级列表，如 [25, 32, 45, 60, 73, 92]
     
     Returns:
-        查询结果列表，包含小时信息和动态尺寸统计
+        查询结果列表，包含天信息和动态尺寸统计
     """
     conn = get_db_connection()
     if not conn:
@@ -35,7 +35,7 @@ def get_particle_size_stats_hourly(stream_ids, start_time, end_time, size_levels
     
     try:
         with conn.cursor() as cur:
-            # 构建SQL查询，按小时分组
+            # 构建SQL查询，按天分组
             stream_ids_str = ','.join(map(str, stream_ids))
             
             # 动态构建尺寸范围的COUNT语句
@@ -49,21 +49,24 @@ def get_particle_size_stats_hourly(stream_ids, start_time, end_time, size_levels
                     count_clauses.append(f"COUNT(CASE WHEN size >= {size_levels[i]} AND size < {size_levels[i+1]} THEN 1 END) AS count_{i}")
             
             count_sql = ',\n                '.join(count_clauses)
+
+            count_sql = count_sql.replace('size', 'short_size')
             
             sql = f"""
             SELECT 
                 stream_id,
-                DATE_TRUNC('hour', detected_at) AS hour_time,
-                {count_sql},
-                COUNT(*) AS total_count
+                DATE_TRUNC('day', detected_at) AS date,
+                {count_sql}
             FROM algo_big_particle_detail
             WHERE stream_id IN ({stream_ids_str})
             AND detected_at >= %s AND detected_at < %s
-            GROUP BY stream_id, DATE_TRUNC('hour', detected_at)
-            ORDER BY stream_id, hour_time
+            GROUP BY stream_id, DATE_TRUNC('day', detected_at)
+            ORDER BY stream_id, date
             """
+
+            # print(sql)
             
-            cur.execute(sql, (start_time, end_time))
+            cur.execute(sql, (start_date, end_date))
             results = cur.fetchall()
             return results
             
@@ -74,16 +77,13 @@ def get_particle_size_stats_hourly(stream_ids, start_time, end_time, size_levels
         conn.close()
 
 
-def print_hourly_stats_table(results, date_str, size_levels):
+def print_stats_table(results, size_levels):
     """
-    格式化输出按小时统计的结果
+    格式化输出按天统计的结果
     """
-    if not results:
-        print(f"\n{date_str}: 没有找到符合条件的数据")
-        return
     
     # 动态生成列标题
-    headers = ['stream_id', 'hour']
+    headers = ['stream_id', 'date']
     for i in range(len(size_levels)):
         if i == len(size_levels) - 1:
             headers.append(f'>={size_levels[i]}mm')
@@ -92,10 +92,9 @@ def print_hourly_stats_table(results, date_str, size_levels):
     headers.append('total')
     
     # 计算总宽度
-    col_width = 10
-    total_width = len(headers) * col_width + 10
+    col_width = 17
+    total_width = len(headers) * col_width
     
-    print(f"\n{date_str} 颗粒尺寸按小时统计")
     print("=" * total_width)
     
     # 输出表头
@@ -112,11 +111,11 @@ def print_hourly_stats_table(results, date_str, size_levels):
     stream_totals = [0] * (num_size_ranges + 1)
     
     for row in results:
-        # 解析行数据：stream_id, hour_time, count_0, count_1, ..., total_count
+        # 解析行数据：stream_id, date, count_0, count_1, ..., total_count
         stream_id = row[0]
-        hour_time = row[1]
+        date = row[1]
         counts = list(row[2:2+num_size_ranges])  # 各尺寸范围的计数
-        total_count = row[-1]  # 最后一列是总计
+        total_count = sum(counts)  # 最后一列是总计
         
         # 如果是新的流ID，先输出上一个流的小计
         if current_stream is not None and current_stream != stream_id:
@@ -129,12 +128,14 @@ def print_hourly_stats_table(results, date_str, size_levels):
             stream_totals = [0] * (num_size_ranges + 1)
         
         current_stream = stream_id
-        hour_str = hour_time.strftime('%H:00')
+        date_str = date.strftime('%Y-%m-%d')
         
         # 输出数据行
-        line = f"{stream_id:<{col_width}}{hour_str:<{col_width}}"
+        line = f"{stream_id:<{col_width}}{date_str:<{col_width}}"
         for count in counts:
-            line += f"{count:<{col_width}}"
+            percentage = round((count / total_count * 100), 2) if total_count > 0 else 0.0
+            count_and_percentage = f"{count}({percentage}%)"
+            line += f"{count_and_percentage:<{col_width}}"
         line += f"{total_count:<{col_width}}"
         print(line)
         
@@ -152,39 +153,25 @@ def print_hourly_stats_table(results, date_str, size_levels):
             line += f"{total:<{col_width}}"
         print(line)
         print("-" * total_width)
-    
-    # 输出日合计
-    line = f"{'day_total':<{col_width}}{'':>{col_width}}"
-    for total in daily_totals:
-        line += f"{total:<{col_width}}"
-    print(line)
-    print("=" * total_width)
 
 
 if __name__ == '__main__':
     stream_ids = [1]
-    size_levels = [25, 32, 45, 55, 60, 73, 92]
-    dates = ['20250907', '20250908', '20250909', '20250910', '20250911']
+    size_levels = [35, 40, 45, 55, 60, 73, 92]
+    date_range = ['20250907', '20250919']
     
     print(f"开始统计流ID: {stream_ids}")
-    print(f"统计日期: {dates}")
-    print("按每小时分组统计颗粒尺寸分布...")
-    
-    for date_str in dates:
-        # 构建当天的开始时间和下一天的开始时间（作为结束时间）
-        start_time = date_str
-        end_time = (datetime.strptime(date_str, '%Y%m%d') + timedelta(days=1)).strftime('%Y%m%d')
+    print(f"统计日期: [{date_range[0]}, {date_range[1]})")
+    print("按每天分组统计颗粒尺寸分布...")
+
+    # 执行按天分组的查询
+    results = get_particle_size_stats_by_day(stream_ids, date_range[0], date_range[1], size_levels)
         
-        print(f"\n正在查询 {date_str}...")
+    if results is None:
+        print(f"查询失败")
+        exit(1)
         
-        # 执行按小时分组的查询
-        results = get_particle_size_stats_hourly(stream_ids, start_time, end_time, size_levels)
-        
-        if results is None:
-            print(f"{date_str}: 查询失败")
-            continue
-        
-        # 输出结果
-        print_hourly_stats_table(results, date_str, size_levels)
+    # 输出结果
+    print_stats_table(results, size_levels)
     
     print("\n统计完成！")
