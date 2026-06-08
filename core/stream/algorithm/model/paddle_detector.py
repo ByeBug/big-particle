@@ -144,8 +144,18 @@ class PaddleDetector:
     
     def infer_loop(self):
         """推理线程主循环"""
+        stats_interval = 30
+        last_stats_time = time.monotonic()
+        inferred_frame_count = 0
+
         while self.running:
             try:
+                now = time.monotonic()
+                if now - last_stats_time >= stats_interval:
+                    logger.info(f"model={self.model_name}, 最近 {stats_interval}s 内推理了 {inferred_frame_count} 帧")
+                    inferred_frame_count = 0
+                    last_stats_time = now
+
                 # 从每个流队列中收集帧
                 frames_to_process = []
                 
@@ -166,6 +176,7 @@ class PaddleDetector:
                 for i in range(0, len(frames_to_process), self.max_batch_size):
                     batch_frames = frames_to_process[i:i + self.max_batch_size]
                     self.process_batch(batch_frames)
+                    inferred_frame_count += len(batch_frames)
                 
             except Exception as e:
                 logger.error(f"推理线程错误: {e}")
