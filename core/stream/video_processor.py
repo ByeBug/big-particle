@@ -34,7 +34,7 @@ class VideoStreamProcessor:
         'big_particle': {
             'enabled': True,
             'infer_interval_ms': 100,  # 推理间隔100ms
-            'model_path': '/data/big-particle-data/models/big_particle_v0.0.6',
+            'model_path': '/data/big-particle-data/models/big_particle_v0.0.8',
             'max_batch_size': 8,
         }
     }
