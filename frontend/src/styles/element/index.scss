@@ -1,0 +1,24 @@
+@forward 'element-plus/theme-chalk/src/common/var.scss' with (
+  $colors: (
+    'primary': (
+      // 首钢主题色
+      'base': #003b90,
+    ),
+  ),
+  $border-radius: (
+    'base': 0px,
+    'small': 2px,
+  ),
+  $card: (
+    'border-radius': 0px,
+  ),
+  $tag: (
+    'border-radius': 0px,
+  )
+);
+
+@use 'element-plus/theme-chalk/src/index.scss' as *;
+
+body {
+  margin: 0;
+}
